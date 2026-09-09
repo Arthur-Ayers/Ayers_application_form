@@ -1,0 +1,853 @@
+/* Ayers Loan Application - web form
+   Styling mirrors the printed PDF (version 2026.1). */
+
+:root {
+  --orange: #f05123;
+  --orange-dark: #d8441a;
+  --ink: #414042;
+  --ink-strong: #191919;
+  --label: #6f6f72;
+  --field: #dddedc;
+  --field-focus: #cfd0ce;
+  --rule: #c9cac8;
+  --table-head: #3f3f41;
+  --page-w: 820px;
+  --gap: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 0 0 80px;
+  background: #eceded;
+  color: var(--ink);
+  font-family: "Helvetica Neue", Helvetica, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* ---------- Sheets ---------- */
+
+.sheet {
+  width: var(--page-w);
+  max-width: 100%;
+  margin: 24px auto;
+  background: #fff;
+  padding: 44px 46px 34px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+  position: relative;
+}
+
+.sheet-footer {
+  margin-top: 34px;
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 8.5px;
+  color: #9a9a9c;
+  letter-spacing: .02em;
+}
+
+.sheet-footer .mid { text-align: center; line-height: 1.5; }
+
+/* ---------- Masthead ---------- */
+
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 30px;
+  margin-bottom: 26px;
+}
+
+.logo { width: 176px; height: auto; display: block; }
+.masthead .logo { margin-top: 26px; }
+
+.masthead-right { flex: 1; max-width: 372px; padding-top: 4px; }
+
+.abn {
+  font-size: 10.5px;
+  color: var(--ink);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.broker-line {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.broker-line label { font-size: 11px; color: var(--ink); }
+
+.doc-title {
+  font-size: 27px;
+  font-weight: 300;
+  letter-spacing: .04em;
+  color: #8d8d90;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.doc-intro { font-size: 11.5px; color: var(--ink); margin: 0 0 22px; }
+
+/* ---------- Section bars ---------- */
+
+.bar {
+  background: var(--orange);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  margin: 0 0 12px;
+}
+
+.bar.spaced { margin-top: 26px; }
+
+.subhead {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 14px 0 7px;
+}
+
+.subhead .note { display: block; font-weight: 400; font-size: 9px; color: var(--label); line-height: 1.35; }
+
+/* ---------- Columns ---------- */
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 26px;
+  align-items: start;
+}
+
+.cols.bars { gap: 0 26px; }
+
+.col-stack { min-width: 0; }
+
+/* ---------- People (applicants and guarantors) ---------- */
+
+/* Two to a row, flowing on as more are added. Each block carries its own bar,
+   so the bars line up across a row without a separate header row. */
+.people {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 26px;
+  align-items: start;
+}
+
+.person { min-width: 0; }
+
+.person-head { position: relative; }
+
+.person-head .btn-remove {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  color: var(--orange);
+  background: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 15px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.person-head .btn-remove:hover { color: var(--orange-dark); }
+
+.role-ticks { margin-top: -4px; margin-bottom: 8px; }
+
+/* ---------- Fields ---------- */
+
+.field { margin-bottom: 8px; min-width: 0; }
+
+.field > label,
+.field-label {
+  display: block;
+  font-size: 10.5px;
+  color: var(--label);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.row {
+  display: grid;
+  gap: 0 10px;
+  align-items: start;
+}
+
+.row.r-2 { grid-template-columns: 1fr 1fr; }
+.row.r-3 { grid-template-columns: 1fr 1fr 1fr; }
+.row.r-title { grid-template-columns: 88px 1fr; }
+.row.r-dep { grid-template-columns: 0.75fr 1.25fr; }
+
+.dependent-inputs {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: 4px;
+  align-items: start;
+}
+
+.dependent-ages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+select,
+textarea {
+  width: 100%;
+  border: 0;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 7px;
+  height: 22px;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+textarea { height: 44px; resize: vertical; line-height: 1.3; }
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--orange);
+  outline-offset: -2px;
+  background: var(--field-focus);
+}
+
+input::placeholder { color: #9c9d9b; }
+
+select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--label) 50%),
+                    linear-gradient(135deg, var(--label) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 9px, calc(100% - 8px) 9px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 22px;
+  cursor: pointer;
+}
+
+/* money inputs get a $ prefix */
+.money { position: relative; }
+.money > span {
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  font-size: 12px;
+  color: var(--ink);
+  pointer-events: none;
+}
+.money input { padding-left: 17px; }
+
+/* address block: stacked lines that read as one grey box */
+.addr-block input { margin-bottom: 2px; }
+.addr-block .address-locality {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px 128px;
+  gap: 0 8px;
+  align-items: center;
+}
+.addr-block .address-locality > input,
+.addr-block .address-locality > select { margin-bottom: 0; }
+.addr-block .pc-wrap { display: flex; align-items: center; gap: 6px; }
+.addr-block .pc-label { font-size: 10.5px; color: var(--label); white-space: nowrap; }
+.addr-block .pc-wrap input { margin-bottom: 0; }
+
+/* label | value | label | value rows (assets & liabilities) */
+.pair-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.66fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0 8px;
+  margin-bottom: 6px;
+}
+
+/* the last cell of a repeatable asset row: field plus its remove button */
+.pair-end { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.pair-end > .money, .pair-end > input { flex: 1; min-width: 0; }
+
+.btn-sm { height: 22px; padding: 0 11px; font-size: 9.5px; }
+.add-row .btn-sm { margin: 1px 0 7px; }
+
+.pair-row > label { min-width: 0; font-size: 11.5px; color: var(--ink); }
+.pair-row > label.sec {
+  min-width: 0;
+  text-align: left;
+  color: var(--label);
+  font-size: 10.5px;
+  line-height: 1.15;
+}
+
+/* Income: one line per job. `display: contents` lets each line's cells sit in
+   the parent grid, so lines can be added or removed without disturbing the
+   column alignment. */
+.income-grid {
+  display: grid;
+  grid-template-columns: 1.85fr 1fr 1fr 1.1fr 1.2fr 1.05fr;
+  gap: 3px 8px;
+  align-items: center;
+}
+
+.income-line { display: contents; }
+
+.income-head {
+  font-size: 9.5px;
+  color: var(--label);
+  line-height: 1.25;
+  padding-bottom: 2px;
+}
+
+.income-label {
+  font-size: 10.5px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 6px;
+}
+
+.income-line.is-current .income-label { color: var(--orange); font-weight: 700; }
+.income-label.is-total { font-weight: 700; text-transform: uppercase; font-size: 10px; }
+
+.income-total-line[hidden] { display: none; }
+.income-cell { min-width: 0; }
+
+/* Column headers carry the labels on wide screens. */
+.income-cell-label {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Tick boxes ---------- */
+
+.ticks { margin: 2px 0 6px; }
+.ticks.two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.ticks.three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 10px; }
+/* A long option left alone on the last row wraps to two lines while the rest of
+   the row sits empty. Let it use the whole row instead. */
+.tick.wide { grid-column: 1 / -1; }
+
+/* The scheme tick is the last step of Purpose -> Usage -> scheme, so it sits
+   under the two dropdowns rather than in a column of its own. */
+.scheme-row { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 10px; margin-top: 8px; }
+.scheme-note { font-size: 9.5px; color: var(--label); }
+.tick.is-locked { opacity: 0.45; cursor: not-allowed; }
+.tick.is-locked input { cursor: not-allowed; }
+
+.tick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  padding: 2.5px 0;
+  cursor: pointer;
+}
+
+.tick input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  min-width: 11px;
+  border: 1px solid #6d6e70;
+  background: #fff;
+  margin: 0;
+  padding: 0;
+  height: 11px;
+  position: relative;
+  cursor: pointer;
+}
+
+.tick input:checked::after {
+  content: "";
+  position: absolute;
+  left: 2.5px;
+  top: -1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--ink-strong);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(42deg);
+}
+
+.tick input:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+
+.tick-group-label { font-size: 11px; font-weight: 700; color: var(--ink); margin: 10px 0 4px; }
+.tick-group-label .note { display: block; font-weight: 400; font-size: 9px; color: var(--label); line-height: 1.35; }
+
+/* ---------- Property table ---------- */
+
+.table-wrap { overflow-x: auto; margin-top: 4px; }
+
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+table.grid th {
+  background: var(--table-head);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 5px;
+  line-height: 1.25;
+  border: 1px solid var(--table-head);
+  vertical-align: middle;
+}
+
+table.grid td {
+  border: 1px solid var(--rule);
+  padding: 0;
+  height: 52px;
+  vertical-align: middle;
+}
+
+/* $ prefix inside a table cell: the glyph sits in the input's left padding */
+table.grid td .money > span { left: 4px; top: 50%; transform: translateY(-50%); font-size: 10.5px; }
+table.grid td .money input { padding-left: 13px; }
+
+table.grid td input,
+table.grid td select {
+  display: block;
+  background: transparent;
+  height: 50px;
+  font-size: 7pt;
+  padding: 3px 5px;
+}
+
+/* Give a two-line address comfortable top/bottom clearance. autoGrow() adds
+   more height when a longer address needs three or more lines, which also
+   grows the complete table row so no address text is clipped. */
+table.grid td textarea {
+  display: block;
+  background: transparent;
+  height: 50px;
+  min-height: 50px;
+  font-size: 7pt;
+  line-height: 1.25;
+  padding: 3px 5px;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+table.grid td.num input { text-align: left; }
+
+table.grid tbody tr:nth-child(even) td { background: #fafafa; }
+
+/* A tick sitting on its own in a table cell. The generic
+   `table.grid td input` rule sets a 28px height for the text inputs, which
+   stretches a checkbox into a tall rectangle — so it has to be overridden
+   here to keep the box square. */
+table.grid td.tick-cell { text-align: center; vertical-align: middle; }
+table.grid td.tick-cell .tick { justify-content: center; padding: 0; height: 50px; }
+table.grid td.tick-cell input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #6d6e70;
+}
+table.grid th.tick-col { text-align: center; }
+
+.row-tools {
+  border: 0 !important;
+  width: 26px;
+  background: transparent !important;
+}
+
+.btn-remove {
+  border: 0;
+  background: transparent;
+  color: var(--orange);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 5px;
+}
+.btn-remove:hover { color: var(--orange-dark); }
+
+/* ---------- Repeatable cards ---------- */
+
+.card {
+  border-left: 3px solid var(--field);
+  padding: 2px 0 6px 11px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  flex: 1;
+}
+
+.card.is-current { border-left-color: var(--orange); }
+.card.is-current .card-title { color: var(--orange); }
+
+/* "Current job" toggle sits in the card header */
+.card-current { font-size: 10px; color: var(--label); gap: 5px; }
+/* Commencement / End / Contact share a line; a current job has no end date,
+   so that column collapses and the other two widen. */
+.emp-dates { grid-template-columns: 1fr 1fr 1.2fr; }
+.card.is-current .emp-dates { grid-template-columns: 1fr 1.4fr; }
+.card.is-current .emp-end-date { display: none; }
+
+.self-employed-income {
+  margin: 7px 0 9px;
+  padding: 7px 9px 4px;
+  background: #f7f7f6;
+  border-left: 2px solid var(--orange);
+}
+.self-employed-income[hidden] { display: none !important; }
+.self-employed-income-group + .self-employed-income-group {
+  border-top: 1px solid #e6e6e3;
+  padding-top: 6px;
+  margin-top: 5px;
+}
+.self-employed-income .subhead {
+  margin: 0 0 4px;
+  color: var(--orange);
+  line-height: 1.25;
+}
+.self-employed-income-values .field { margin-bottom: 0; }
+.self-employed-income-values .field > label {
+  font-size: 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media print {
+  .self-employed-income { margin: 3px 0 4px; padding: 4px 6px 1px; }
+  .self-employed-income-group + .self-employed-income-group { padding-top: 3px; margin-top: 2px; }
+  .self-employed-income-values .field > label { font-size: 7px; }
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border: 1px solid var(--orange);
+  background: #fff;
+  color: var(--orange);
+  border-radius: 20px;
+  padding: 0 15px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.btn:hover { background: var(--orange); color: #fff; }
+
+.btn.solid { background: var(--orange); color: #fff; }
+.btn.solid:hover { background: var(--orange-dark); border-color: var(--orange-dark); }
+
+.btn.ghost { border-color: #d3d4d2; color: var(--ink); }
+.btn.ghost:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+.btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+.btn-reset { height: 32px; padding: 0 26px; font-size: 12px; margin-bottom: 14px; }
+
+.add-row { margin: 8px 0 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Totals ---------- */
+
+.total-line input,
+input[readonly] {
+  background: #efefee;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.total-line .field-label { font-weight: 700; color: var(--ink); }
+
+.grand-total {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.grand-total .field-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* ---------- Expense lists ---------- */
+
+.exp-row {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.exp-row > label { font-size: 11.5px; color: var(--ink); }
+.expense-other {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.expense-other label { font-size: 11.5px; color: var(--ink); }
+.expense-other input { min-width: 0; }
+.exp-row.is-total > label { font-weight: 700; text-transform: uppercase; font-size: 11px; }
+.exp-row .rm { display: flex; align-items: center; gap: 4px; }
+
+/* ---------- Toolbar ---------- */
+
+/* ---------- Misc ---------- */
+
+.field > label .lbl-note { color: var(--label); font-weight: 400; }
+
+.hint { font-size: 10px; color: var(--label); margin: 3px 0 0; }
+
+/* ---------- End of form ---------- */
+
+.finish {
+  width: var(--page-w);
+  max-width: 100%;
+  margin: 0 auto 40px;
+  padding: 26px 46px 28px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+  text-align: center;
+}
+
+.btn-complete {
+  height: 42px;
+  padding: 0 46px;
+  font-size: 13px;
+  letter-spacing: .08em;
+}
+
+/* Spacing helpers. These exist as classes rather than inline styles so the
+   print stylesheet can compact them — an inline style would win over it. */
+.section-gap { margin-top: 18px; }
+.subhead.spaced-sm { margin-top: 16px; }
+.field-gap { margin-top: 8px; }
+.question { font-size: 11.5px; margin: 20px 0 0; }
+
+/* Amount and term share one line, aligned to the Purpose / Usage columns
+   above; the security address gets a full-width line of its own, since it
+   holds a complete street address. */
+.loan-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 26px;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.q-inline {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 6px;
+}
+
+.decl-note { font-size: 11px; font-weight: 700; margin: 0 0 12px; }
+
+/* The declaration used to start a new sheet. Continuous now, so it needs a
+   visible break of its own. */
+.section-break {
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+.decl-confirm { font-size: 11.5px; margin: 10px 0 18px; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Responsive ---------- */
+
+/* Screen-only: A4 is ~794px wide, so an unqualified max-width query would also
+   fire when printing and collapse the form to one column. */
+@media screen and (max-width: 860px) {
+  .sheet { padding: 26px 18px 22px; margin: 12px auto; }
+  .finish { padding: 20px 18px 24px; }
+  .cols { grid-template-columns: 1fr; gap: 0; }
+  .people { grid-template-columns: 1fr; gap: 0; }
+  .masthead { flex-direction: column; gap: 14px; }
+  .masthead .logo { margin-top: 0; width: 150px; }
+  .masthead-right { max-width: none; width: 100%; }
+  .doc-title { font-size: 22px; }
+  .exp-row { grid-template-columns: 1fr 120px; }
+  .grand-total { grid-template-columns: 1fr; gap: 4px; }
+  .ticks.three { grid-template-columns: 1fr 1fr; }
+
+  /* Income: stack each job's figures into its own labelled block. */
+  .income-grid { display: block; }
+  .income-head-line { display: none; }
+  .income-line {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 10px;
+    padding: 8px 0;
+    border-top: 1px solid #ededed;
+  }
+  .income-label { grid-column: 1 / -1; font-weight: 700; white-space: normal; margin-bottom: 2px; }
+  .income-cell-label {
+    position: static;
+    width: auto; height: auto;
+    margin: 0 0 3px;
+    clip: auto;
+    overflow: visible;
+    display: block;
+    font-size: 10.5px;
+    color: var(--label);
+  }
+  .loan-row { grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .pair-row { grid-template-columns: 1fr 1fr; }
+  .pair-row > label.sec { text-align: left; }
+  .addr-block .address-locality {
+    grid-template-columns: minmax(0, 1fr) 76px minmax(105px, .75fr);
+    gap: 2px 6px;
+  }
+  .row.r-3 { grid-template-columns: 1fr; }
+}
+
+/* ---------- Print ---------- */
+
+@media print {
+  body { background: #fff; padding: 0; font-size: 11px; }
+  .no-print { display: none !important; }
+
+  /* Tighten to roughly the density of the original printed form, so a plain
+     application still lands on three A4 pages. */
+  input[type="text"], input[type="email"], input[type="tel"], input[type="number"],
+  select, textarea { height: 16px; font-size: 9.5px; padding: 1px 5px; }
+  textarea { height: 26px; }
+  .field { margin-bottom: 1px; }
+  .field > label, .field-label { font-size: 8px; margin-bottom: 0; line-height: 1.1; }
+  .row { gap: 0 7px; }
+  .addr-block input { margin-bottom: 0; }
+  .broker-line label { font-size: 9.5px; }
+  .bar { padding: 3px 9px; font-size: 9.5px; margin-bottom: 5px; }
+  .bar.spaced { margin-top: 11px; }
+  .tick { padding: 0; font-size: 9.5px; gap: 5px; }
+  .tick input { width: 10px; height: 10px; min-width: 10px; }
+  .tick-group-label { margin: 4px 0 1px; font-size: 9px; }
+  .tick-group-label .note, .subhead .note { font-size: 8px; }
+  .subhead { margin: 6px 0 3px; }
+  .card { margin-bottom: 7px; padding-bottom: 1px; }
+  .exp-row, .pair-row { margin-bottom: 2px; }
+  .doc-title { font-size: 18px; margin-bottom: 5px; }
+  .doc-intro { font-size: 10px; margin-bottom: 8px; }
+  .section-gap { margin-top: 9px; }
+  .subhead.spaced-sm { margin-top: 7px; }
+  .field-gap { margin-top: 4px; }
+  .question { font-size: 9.5px; margin-top: 9px; }
+  .decl-note, .decl-confirm { font-size: 9.5px; margin-bottom: 8px; }
+  .masthead { margin-bottom: 8px; }
+  .masthead .logo { margin-top: 2px; width: 110px; }
+  .abn { font-size: 8px; margin-bottom: 7px; }
+  .broker-line { margin-bottom: 3px; }
+  .sheet-footer { margin-top: 8px; padding-top: 4px; font-size: 7px; }
+  .sheet-footer .mid { line-height: 1.35; }
+  .money > span { top: 1px; font-size: 10px; }
+  table.grid td { height: 42px; }
+  table.grid td input[type="text"], table.grid td select,
+  table.grid td textarea { height: 40px; min-height: 40px; font-size: 7pt; }
+  table.grid td.tick-cell input[type="checkbox"] { width: 10px; height: 10px; min-width: 10px; }
+  /* Margins belong to @page, not the sheet: sheet padding is applied once at
+     the top of the box, so a section that runs onto a second sheet of paper
+     would start flush against the paper edge. */
+  .sheet {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    page-break-after: always;
+    /* No `zoom` here on purpose. WebKit scales zoomed content when printing
+       but does not reliably recompute page breaks from the scaled size, which
+       is the classic "prints fine in Chrome, breaks in Safari" fault. The
+       headroom is taken out of the layout itself instead, which every engine
+       measures the same way. */
+  }
+  .sheet:last-of-type { page-break-after: auto; }
+  input, select, textarea { background: var(--field) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bar, table.grid th, .card.is-current { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Don't split a record across a page boundary. */
+  .card, .exp-row, .pair-row, .field { break-inside: avoid; page-break-inside: avoid; }
+  .person-head { break-after: avoid; page-break-after: avoid; }
+  table.grid tr { break-inside: avoid; page-break-inside: avoid; }
+  table.grid thead { display: table-header-group; }   /* repeat header on overflow */
+  .bar { break-after: avoid; page-break-after: avoid; }
+  .sheet-footer { break-before: avoid; page-break-before: avoid; }
+
+  /* A long list of properties or jobs can outgrow one sheet; let it flow
+     rather than clip. */
+  .table-wrap { overflow: visible; }
+  table.grid { min-width: 0; }
+
+  /* Keep a heading with what follows it, and never strand a lone line. */
+  .subhead, .tick-group-label, .card-title { break-after: avoid; page-break-after: avoid; }
+  .income-head-line { break-after: avoid; page-break-after: avoid; }
+  p, .hint { orphans: 3; widows: 3; }
+
+  /* Every physical page gets its own margins, including continuation pages
+     produced when an applicant has many jobs or properties. */
+  @page { size: A4; margin: 10mm 11mm 8mm; }
+}

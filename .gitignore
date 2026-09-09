@@ -1,0 +1,6 @@
+.DS_Store
+
+# Never commit completed applications — they contain client personal and
+# financial details. This repository is public.
+*.json
+!package.json
