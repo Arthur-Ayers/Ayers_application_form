@@ -363,12 +363,17 @@
 
     if (it.type === 'checkbox' || it.type === 'radio') {
       var cb = ctx.form.createCheckBox(name);
-      if (it.el.checked) { cb.check(); }
       cb.addToPage(page, {
         x: place.x, y: place.y, width: place.width, height: place.height,
         borderWidth: 0.6, borderColor: PDFLib.rgb(0.43, 0.43, 0.44),
         backgroundColor: PDFLib.rgb(1, 1, 1)
       });
+      /* Tick it only after the widget exists. A checkbox carries its state
+         twice — the field's value, and the widget's appearance state, which is
+         what a viewer actually draws. Ticking first sets the value, then
+         addToPage creates the widget with its appearance state at "off", and
+         every ticked box exports as an empty square. */
+      if (it.el.checked) { cb.check(); }
       return;
     }
 
