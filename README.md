@@ -1,26 +1,26 @@
 # Ayers Loan Application — web form
 
-**Live:** https://arthur-ayers.github.io/Ayers_application_form/applicationform/
+**Live:** https://arthur-ayers.github.io/Ayers_application_form/ayersform/
 
-Moving to **https://aiersq.com.au/applicationform** once the domain's DNS points here.
+Moving to **https://aiersq.com.au/ayersform** once the domain's DNS points here.
 The bare address redirects to the form, so either form of the link works.
 
 ## Repository layout
 
 The form is served from a **subdirectory**, not the repository root, so the published
-address ends in `/applicationform`:
+address ends in `/ayersform`:
 
 ```
-/                     redirect stub -> ./applicationform/  (relative, so it works
+/                     redirect stub -> ./ayersform/  (relative, so it works
                       under any domain or project path)
-/applicationform/     the form: index.html, app.js, styles.css, pdf-export.js,
+/ayersform/     the form: index.html, app.js, styles.css, pdf-export.js,
                       assets/, vendor/
 /README.md            this file
 /.nojekyll            serve the files as-is, no Jekyll build
 ```
 
 **Deploying:** the working copy of the form is the `web/` folder on the broker's Mac.
-Its contents go to `applicationform/` in this repository — *not* to the root. Copying
+Its contents go to `ayersform/` in this repository — *not* to the root. Copying
 them to the root would put the form back at the bare domain and leave a stale copy of
 every file behind. `README.md`, `.gitignore` and `.nojekyll` stay at the root.
 
