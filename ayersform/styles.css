@@ -61,11 +61,13 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 30px;
-  margin-bottom: 26px;
+  margin-bottom: 12px;
 }
 
 .logo { width: 176px; height: auto; display: block; }
-.masthead .logo { margin-top: 26px; }
+/* Logo sits level with the bottom of the right-hand block (the Interview Date
+   line), as on the printed form. */
+.masthead .logo { margin-top: 0; margin-bottom: 10px; align-self: flex-end; }
 
 .masthead-right { flex: 1; max-width: 372px; padding-top: 4px; }
 
@@ -87,15 +89,15 @@ body {
 .broker-line label { font-size: 11px; color: var(--ink); }
 
 .doc-title {
-  font-size: 27px;
+  font-size: 23px;
   font-weight: 300;
   letter-spacing: .04em;
-  color: #8d8d90;
-  margin: 0 0 12px;
+  color: #6d6e70;
+  margin: 0 0 9px;
   text-transform: uppercase;
 }
 
-.doc-intro { font-size: 11.5px; color: var(--ink); margin: 0 0 22px; }
+.doc-intro { font-size: 11.5px; color: var(--ink); margin: 0 0 13px; }
 
 /* ---------- Section bars ---------- */
 
@@ -190,7 +192,7 @@ body {
 .row.r-2 { grid-template-columns: 1fr 1fr; }
 .row.r-3 { grid-template-columns: 1fr 1fr 1fr; }
 .row.r-title { grid-template-columns: 88px 1fr; }
-.row.r-dep { grid-template-columns: 0.75fr 1.25fr; }
+.row.r-dep { grid-template-columns: 1fr 1fr; }
 
 .dependent-inputs {
   display: grid;
@@ -355,6 +357,10 @@ select {
 .scheme-note { font-size: 9.5px; color: var(--label); }
 .tick.is-locked { opacity: 0.45; cursor: not-allowed; }
 .tick.is-locked input { cursor: not-allowed; }
+
+/* Shown only in the generated PDF (see pdf-export.js). */
+.pdf-only { display: none; }
+.decl-logo { margin: 0 0 22px; }
 
 /* Purpose allows several ticks; keep the grid tight under its label. */
 .purpose-ticks { margin: 0; }
@@ -659,7 +665,8 @@ table.grid th.tick-col { text-align: center; }
 
 .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
-.btn-reset { height: 32px; padding: 0 26px; font-size: 12px; margin-bottom: 14px; }
+/* Sized and weighted like the RESET button on the printed form. */
+.btn-reset { height: 32px; padding: 0 33px; font-size: 15px; font-weight: 400; letter-spacing: .04em; margin-bottom: 20px; }
 
 .add-row { margin: 8px 0 4px; display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -796,7 +803,7 @@ input[readonly] {
   .cols { grid-template-columns: 1fr; gap: 0; }
   .people { grid-template-columns: 1fr; gap: 0; }
   .masthead { flex-direction: column; gap: 14px; }
-  .masthead .logo { margin-top: 0; width: 150px; }
+  .masthead .logo { margin-top: 0; width: 150px; align-self: flex-start; }
   .masthead-right { max-width: none; width: 100%; }
   .doc-title { font-size: 22px; }
   .exp-row { grid-template-columns: 1fr 120px; }

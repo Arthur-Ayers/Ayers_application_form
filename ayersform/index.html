@@ -8,7 +8,7 @@
 <!-- ?v= is a cache buster. Browsers hold on to styles.css and app.js hard;
      without it an edit can look like it did nothing and the form prints with
      the old layout. Bump this number whenever styles.css or app.js changes. -->
-<link rel="stylesheet" href="styles.css?v=81">
+<link rel="stylesheet" href="styles.css?v=84">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
         Ayers Financial Group ABN 48 138 488 570<br>
         VOW Financial Pty Ltd Australian Credit Licence 390261
       </p>
-      <button type="button" class="btn solid btn-reset no-print" id="btn-reset">Reset</button>
+      <button type="button" class="btn solid btn-reset no-print pdf-show" id="btn-reset">Reset</button>
       <div class="broker-line">
         <label for="broker">Our Broker:</label>
         <input type="text" id="broker" name="broker">
@@ -154,7 +154,12 @@
 
 
 
-  <h1 class="doc-title section-break">Living Expense Declaration</h1>
+  <!-- The declaration starts its own page in the PDF, headed with the logo as
+       on the paper form. The logo is shown only in the PDF. -->
+  <div class="section-break" data-pdf-break-before>
+    <img class="logo pdf-only decl-logo" src="assets/ayers-logo.svg" alt="Ayers">
+    <h1 class="doc-title">Living Expense Declaration</h1>
+  </div>
   <p class="decl-confirm">
     I/We confirm that the below details are a true and accurate breakdown of our combined Basic and Additional Living
     Expenses:
@@ -171,7 +176,7 @@
 
   <div class="sheet-footer">
     <span>Confidential</span>
-    <span class="mid">AYERS Loan Application<br>version 2026.1</span>
+    <span class="mid">AYERS Loan Application<br>version 2026.2</span>
     <span>Loan Application</span>
   </div>
 </section>
@@ -184,7 +189,7 @@
 </form>
 
 <script src="vendor/pdf-lib.min.js"></script>
-<script src="pdf-export.js?v=84"></script>
-<script src="app.js?v=74"></script>
+<script src="pdf-export.js?v=86"></script>
+<script src="app.js?v=76"></script>
 </body>
 </html>

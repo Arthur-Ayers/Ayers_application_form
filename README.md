@@ -33,7 +33,7 @@ preserve it — deleting it silently drops the custom domain.
 > Everything typed into the form stays in the browser on the user's own computer; nothing is
 > uploaded anywhere.
 
-A browser version of the printed *Ayers Loan Application (version 2026.1)* PDF. Same layout, colours,
+A browser version of the printed *Ayers Loan Application (version 2026.1)* PDF; the web form and the PDF it produces are **version 2026.2**. Same layout, colours,
 logo and wording, with repeatable **property** and **employment** entries.
 
 ## Running it
@@ -55,7 +55,7 @@ recommended because it matches the hosted setup and avoids browser-specific `fil
 
 ## Editing: bump the cache buster
 
-`index.html` loads `styles.css?v=81`, `pdf-export.js?v=84` and `app.js?v=74`. **Increment that number whenever you change
+`index.html` loads `styles.css?v=84`, `pdf-export.js?v=86` and `app.js?v=76`. **Increment that number whenever you change
 either file.** Browsers cache both aggressively; without it an edit can appear to do nothing, and —
 worse — the form can still *print* with the old layout even though the screen looks current. This
 has already caused one bad 6-page print of a form that lays out correctly in 3.
@@ -205,8 +205,17 @@ Three things are worth knowing before editing `pdf-export.js`:
   font size and gap in the same proportion as the browser shows. An earlier version
   measured the compacted *print* layout instead, which is why the exported spacing
   and type did not match the screen.
-- **Page count is not fixed.** The document runs to as many A4 pages as the content
-  needs, breaking between elements so a field or table row is never cut in half.
+- **Page count is not fixed, but pages break cleanly.** A standard application is four A4
+  pages. A page never cuts through a field, a table row, a row of fields, a group of
+  ticks or an employment card; a heading always stays with the start of what it
+  introduces, so no page ends on a heading or a lone table header. The Living Expense
+  Declaration always starts its own page, headed with the logo as on the printed form.
+- **Every page has the footer** — Confidential, form name and version, and *Page n of N* —
+  drawn by the exporter; the on-screen footer is not copied.
+- **RESET is on the PDF** as on the printed form. In Acrobat, Reader and Chrome it asks
+  before clearing the form. It does nothing in Preview.
+- **Values are never cut off.** A single-line value too wide for its box is drawn smaller
+  rather than clipped (large amounts in the narrow property-table columns).
 - **Editable values use fixed, viewer-safe sizes.** Single-line widgets are vertically constrained
   to keep ordinary entries clear and consistent. Property addresses use the property-table
   size of 7 pt in a compact 23%-wide table cell. Repeated whitespace is normalized and

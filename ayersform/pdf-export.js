@@ -18,8 +18,9 @@
 
   var A4_W = 595.276, A4_H = 841.89;
   var MARGIN_X = 31.18;        // 11 mm
-  var MARGIN_TOP = 28.35;      // 10 mm
-  var MARGIN_BOTTOM = 22.68;   //  8 mm
+  var MARGIN_TOP = 31.18;      // 11 mm
+  var MARGIN_BOTTOM = 48;      // room for the page footer below the content
+  var FOOTER_Y = 30;           // baseline of the footer's first line
 
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
@@ -78,7 +79,8 @@
 
   function isHidden(el, cs) {
     if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0 ||
-        el.hasAttribute('hidden') || (el.classList && el.classList.contains('no-print'))) {
+        el.hasAttribute('hidden') ||
+        (el.classList && el.classList.contains('no-print') && !el.classList.contains('pdf-show'))) {
       return true;
     }
     // Screen-reader-only text (the income column labels, the table's "Remove")
@@ -154,8 +156,15 @@
 
       if (tag === 'input' || tag === 'select' || tag === 'textarea') {
         var fieldType = (el.type || '').toLowerCase();
-        var fieldBg = colour(cs.backgroundColor) || { r: 0.867, g: 0.871, b: 0.863 };
-        if (fieldType !== 'checkbox' && fieldType !== 'radio') {
+        var ownBg = colour(cs.backgroundColor);
+        var cell = el.closest('table.grid td');
+        /* Property-table fields are transparent on screen, showing the white or
+           striped cell behind them. Give the PDF field that cell colour rather
+           than the grey used for fields elsewhere, which filled the whole table. */
+        var fieldBg = ownBg ||
+          (cell ? (colour(getComputedStyle(cell).backgroundColor) || { r: 1, g: 1, b: 1 })
+                : { r: 0.867, g: 0.871, b: 0.863 });
+        if (fieldType !== 'checkbox' && fieldType !== 'radio' && (ownBg || !cell)) {
           items.push({ kind: 'rect', box: base, fill: fieldBg });
         }
         items.push({ kind: 'field', box: base, el: el, tag: tag,
@@ -167,9 +176,14 @@
       }
 
       var bg = colour(cs.backgroundColor);
-      if (bg) { items.push({ kind: 'rect', box: base, fill: bg }); }
+      if (tag === 'button') {
+        // drawn as the rounded pill it is on screen; its label follows as text
+        if (bg) { items.push({ kind: 'pill', box: base, fill: bg, reset: el.id === 'btn-reset' }); }
+      } else if (bg) {
+        items.push({ kind: 'rect', box: base, fill: bg });
+      }
 
-      ['Top', 'Right', 'Bottom', 'Left'].forEach(function (side) {
+      if (tag !== 'button') ['Top', 'Right', 'Bottom', 'Left'].forEach(function (side) {
         var w = parseFloat(cs['border' + side + 'Width']) || 0;
         var c = colour(cs['border' + side + 'Color']);
         if (w > 0 && c && cs['border' + side + 'Style'] !== 'none') {
@@ -197,26 +211,110 @@
     });
 
     items.sort(function (a, b) { return (a.box.y - b.box.y) || (a.box.x - b.box.x); });
-    return { items: items, contentW: box.width - padL - padR };
+
+    function rel(r) { return { top: r.top - originY, bottom: r.bottom - originY }; }
+    function visible(el) {
+      var r = el.getBoundingClientRect();
+      return r.height > 1 && getComputedStyle(el).display !== 'none';
+    }
+
+    /* Blocks a page break must not cut through: a label and its field, a row
+       of fields, a table row, a group of ticks, a whole employment card. */
+    var keeps = [];
+    $$(KEEP_TOGETHER.join(','), sheet).forEach(function (el) {
+      if (visible(el)) { keeps.push(rel(el.getBoundingClientRect())); }
+    });
+
+    /* Headings stay with the start of what they introduce, so no page ends on
+       a heading, and a table header never sits alone at the foot of a page. */
+    $$(KEEP_WITH_NEXT.join(','), sheet).forEach(function (el) {
+      if (!visible(el)) { return; }
+      var next = null;
+      for (var node = el; node && node !== sheet && !next; node = node.parentElement) {
+        for (var sib = node.nextElementSibling; sib; sib = sib.nextElementSibling) {
+          if (visible(sib)) { next = sib; break; }
+        }
+      }
+      if (!next) { return; }
+      var a = rel(el.getBoundingClientRect()), b = rel(next.getBoundingClientRect());
+      keeps.push({ top: a.top, bottom: Math.max(a.bottom, b.top + Math.min(b.bottom - b.top, 70)) });
+    });
+
+    var breaks = $$('[data-pdf-break-before]', sheet).filter(visible).map(function (el) {
+      return rel(el.getBoundingClientRect()).top;
+    });
+
+    return { items: items, keeps: keeps, breaks: breaks, contentW: box.width - padL - padR };
   }
+
+  var KEEP_TOGETHER = [
+    '.field', '.row', '.pair-row', '.exp-line', '.exp-combined', 'tr', '.ticks', '.card',
+    '.addr-block', '.scheme-row', '.loan-row', '.q-inline', '.grand-total', '.person-head',
+    '.income-cell', '#living-expenses', '[data-asset-group]', '.broker-line', '.masthead'
+  ];
+  var KEEP_WITH_NEXT = [
+    '.bar', '.person-head', '.subhead', '.tick-group-label', 'h1', '.doc-intro', '.decl-confirm',
+    'thead', '.question', '.card-title'
+  ];
 
   /* ------------------------------------------------------------------ */
   /* Laying it onto A4                                                   */
   /* ------------------------------------------------------------------ */
 
-  /* Break between items, never through one, so a field or table row is never
-     sliced in half by a page edge. */
-  function paginate(items, pageH) {
-    var pages = [], current = [], top = 0;
-    items.forEach(function (it) {
-      if (current.length && (it.box.y + it.box.h) - top > pageH) {
-        pages.push({ top: top, items: current });
-        top = it.box.y;
-        current = [];
-      }
-      current.push(it);
+  /* Choose where each page ends. A page is cut at the lowest point that
+     still fits and that
+       - does not pass through any item (a field, a table row, a line of text),
+       - does not pass through a keep-together block or a heading and the start
+         of what follows it,
+     unless a section asks to start on a new page. A block taller than a whole
+     page cannot be kept together and is allowed to break. */
+  function paginate(read, pageH) {
+    var items = read.items;
+    if (!items.length) { return []; }
+    var tall = pageH * 0.9;
+    var solid = items.filter(function (it) { return it.box.h < tall; }).map(function (it) {
+      return { top: it.box.y, bottom: it.box.y + it.box.h };
     });
-    if (current.length) { pages.push({ top: top, items: current }); }
+    var keeps = read.keeps.filter(function (k) { return k.bottom - k.top < tall; });
+    var tops = items.map(function (it) { return it.box.y; })
+      .concat(read.keeps.map(function (k) { return k.top; }))
+      .sort(function (x, y) { return x - y; });
+    var end = Math.max.apply(null, items.map(function (it) { return it.box.y + it.box.h; }));
+
+    function clear(y) {
+      function through(r) { return r.top < y - 0.5 && r.bottom > y + 0.5; }
+      return !solid.some(through) && !keeps.some(through);
+    }
+
+    var pages = [], top = Math.min.apply(null, items.map(function (it) { return it.box.y; }));
+    for (var guard = 0; guard < 200; guard++) {
+      var limit = top + pageH;
+      var forced = read.breaks.filter(function (y) { return y > top + 1 && y <= limit; })
+        .sort(function (x, y) { return x - y; })[0];
+      var cut;
+      if (forced !== undefined) {
+        cut = forced;
+      } else if (end <= limit) {
+        cut = Infinity;
+      } else {
+        cut = null;
+        for (var i = tops.length - 1; i >= 0; i--) {
+          var y = tops[i];
+          if (y <= top + 1) { break; }
+          if (y <= limit && clear(y)) { cut = y; break; }
+        }
+        if (cut === null) {   // nothing clean fits: cut at the last item start that fits
+          cut = tops.filter(function (t) { return t > top + 1 && t <= limit; }).pop() ||
+                tops.filter(function (t) { return t > top + 1; })[0];
+        }
+      }
+      var pageItems = items.filter(function (it) {
+        return it.box.y >= top - 0.5 && it.box.y < cut - 0.5;
+      });
+      if (pageItems.length) { pages.push({ top: top, items: pageItems }); }
+      if (cut === Infinity || cut === undefined) { break; }
+      top = cut;
+    }
     return pages;
   }
 
@@ -344,6 +442,12 @@
           x: X(it.box.x), y: Y(baseline), size: size, font: font, color: rgb(it.fill)
         });
       },
+      pill: function (b, fill) {
+        var w = b.w * s, h = b.h * s, r = h / 2;
+        var d = 'M ' + r + ' 0 H ' + (w - r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + (w - r) + ' ' + h +
+                ' H ' + r + ' A ' + r + ' ' + r + ' 0 0 1 ' + r + ' 0 Z';
+        page.drawSvgPath(d, { x: X(b.x), y: Y(b.y), color: rgb(fill) });
+      },
       pos: function (b) {
         return { x: X(b.x), y: Y(b.y + b.h), width: b.w * s, height: b.h * s };
       }
@@ -422,6 +526,15 @@
       borderWidth: 0, backgroundColor: rgb(grey), textColor: rgb(ink), font: ctx.font
     });
     var fixedSize = inPropertyTable ? TABLE_FIELD_FONT_SIZE : NORMAL_FIELD_FONT_SIZE;
+    /* A single-line value too wide for its box is shrunk to fit rather than cut
+       off — "1,200,000" in a narrow table column otherwise printed as "1,200,00". */
+    if (!multiline && it.tag !== 'select' && it.type !== 'checkbox') {
+      var shown = safeText(it.el.value || '');
+      if (isExpenseAmount(it.el)) { shown = moneyText(it.el.value); }
+      while (shown && fixedSize > 5 && ctx.font.widthOfTextAtSize(shown, fixedSize) > width - 9) {   // Preview pads ~4pt a side
+        fixedSize -= 0.25;
+      }
+    }
     ctx.fieldFontSizes[name] = fixedSize;
     field.setFontSize(fixedSize);
     if (it.el.readOnly && field.enableReadOnly) { field.enableReadOnly(); }
@@ -555,6 +668,51 @@
     }
   }
 
+  /* The same footer on every page, as on the printed form: "Confidential",
+     the form name and version, and "Page n of N". The wording comes from the
+     on-screen footer so the two cannot drift apart. */
+  function drawFooters(pdf, ctx) {
+    var spans = $$('.sheet-footer > span');
+    var left = spans[0] ? spans[0].textContent.trim() : 'Confidential';
+    var mid = spans[1] ? spans[1].innerText.split('\n').map(function (t) { return t.trim(); }).filter(Boolean)
+                       : ['AYERS Loan Application'];
+    var grey = PDFLib.rgb(0.6, 0.6, 0.61), size = 6.5, font = ctx.font;
+    var pages = pdf.getPages(), total = pages.length;
+    pages.forEach(function (page, i) {
+      page.drawText(safeText(left), { x: MARGIN_X, y: FOOTER_Y, size: size, font: font, color: grey });
+      mid.forEach(function (line, n) {
+        var text = safeText(line), w = font.widthOfTextAtSize(text, size);
+        page.drawText(text, { x: (A4_W - w) / 2, y: FOOTER_Y - n * 9, size: size, font: font, color: grey });
+      });
+      var right = 'Page ' + (i + 1) + ' of ' + total, rw = font.widthOfTextAtSize(right, size);
+      page.drawText(right, { x: A4_W - MARGIN_X - rw, y: FOOTER_Y, size: size, font: font, color: grey });
+    });
+  }
+
+  /* RESET works in the PDF as it did on the paper form, in viewers that run
+     form scripts. It asks first: one stray click would otherwise wipe a
+     completed application. Added after the field appearances are generated,
+     so the pill drawn on the page is not painted over with a grey box. */
+  function addResetButton(pdf, ctx) {
+    if (!ctx.resetButton) { return; }
+    var p = ctx.resetButton.place;
+    var dict = pdf.context.obj({
+      Type: 'Annot', Subtype: 'Widget', FT: 'Btn', Ff: 65536, F: 4,
+      T: PDFLib.PDFHexString.fromText('reset_form'),
+      TU: PDFLib.PDFHexString.fromText('Clear every field in this form'),
+      Rect: [p.x, p.y, p.x + p.width, p.y + p.height],
+      P: ctx.resetButton.page.ref,
+      A: {
+        S: 'JavaScript',
+        JS: PDFLib.PDFHexString.fromText(
+          'if (app.alert("Clear every field in this application?", 2, 2) == 4) { this.resetForm(); }')
+      }
+    });
+    var ref = pdf.context.register(dict);
+    ctx.resetButton.page.node.addAnnot(ref);
+    ctx.form.acroForm.addField(ref);
+  }
+
   /* Masthead logo, drawn from its own SVG paths so it stays vector. */
   var LOGO_VIEW = { x: 33.5, y: 58.5, w: 126.5, h: 76 };
   var logoCache = null;
@@ -620,7 +778,13 @@
        left their space behind as unexplained gaps — most visibly above the
        income details, where the "+ Add job" button sits. */
     var hide = document.createElement('style');
-    hide.textContent = '.no-print { display: none !important; }';
+    hide.textContent =
+      '.no-print:not(.pdf-show) { display: none !important; }' +
+      '.pdf-only { display: block !important; }' +
+      // the footer is drawn on every page instead, with page numbers
+      '.sheet-footer { display: none !important; }' +
+      // a section that starts a new page needs no rule or gap above it
+      '[data-pdf-break-before] { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }';
     document.head.appendChild(hide);
     void document.body.offsetHeight;
     var sheetData;
@@ -636,13 +800,17 @@
       var read = sheetData[s];
       ctx.scale = usableW / read.contentW;
 
-      paginate(read.items, usableH / ctx.scale).forEach(function (slice) {
+      paginate(read, usableH / ctx.scale).forEach(function (slice) {
         var page = pdf.addPage([A4_W, A4_H]);
         pageCount++;
         var draw = makeDrawer(ctx, page, slice.top);
 
         // backgrounds and rules first, then everything that sits on them
         slice.items.forEach(function (it) {
+          if (it.kind === 'pill') {
+            draw.pill(it.box, it.fill);
+            if (it.reset) { ctx.resetButton = { page: page, place: draw.pos(it.box) }; }
+          }
           if (it.kind === 'rect') { draw.rect(it.box, it.fill); }
           else if (it.kind === 'border') { draw.border(it.box, it.side, it.width, it.fill); }
         });
@@ -675,6 +843,8 @@
         });
       }
     });
+    drawFooters(pdf, ctx);
+    addResetButton(pdf, ctx);
     addExpenseCalculations(pdf, ctx);
     return {
       bytes: await pdf.save({ updateFieldAppearances: false }),
