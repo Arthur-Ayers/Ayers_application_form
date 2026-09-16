@@ -55,7 +55,7 @@ recommended because it matches the hosted setup and avoids browser-specific `fil
 
 ## Editing: bump the cache buster
 
-`index.html` loads `styles.css?v=84`, `pdf-export.js?v=86` and `app.js?v=76`. **Increment that number whenever you change
+`index.html` loads `styles.css?v=84`, `pdf-export.js?v=87` and `app.js?v=76`. **Increment that number whenever you change
 either file.** Browsers cache both aggressively; without it an edit can appear to do nothing, and —
 worse — the form can still *print* with the old layout even though the screen looks current. This
 has already caused one bad 6-page print of a form that lays out correctly in 3.
@@ -215,7 +215,10 @@ Three things are worth knowing before editing `pdf-export.js`:
 - **RESET is on the PDF** as on the printed form. In Acrobat, Reader and Chrome it asks
   before clearing the form. It does nothing in Preview.
 - **Values are never cut off.** A single-line value too wide for its box is drawn smaller
-  rather than clipped (large amounts in the narrow property-table columns).
+  rather than clipped (large amounts in the narrow property-table columns). Dropdowns
+  allow for the ~13pt arrow button Chrome draws inside them — without that, "Applicant 1"
+  vanished from the property table's Owner column, which is also why that column is 13%
+  wide.
 - **Editable values use fixed, viewer-safe sizes.** Single-line widgets are vertically constrained
   to keep ordinary entries clear and consistent. Property addresses use the property-table
   size of 7 pt in a compact 23%-wide table cell. Repeated whitespace is normalized and

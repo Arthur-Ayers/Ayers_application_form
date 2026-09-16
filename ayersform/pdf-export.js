@@ -528,10 +528,13 @@
     var fixedSize = inPropertyTable ? TABLE_FIELD_FONT_SIZE : NORMAL_FIELD_FONT_SIZE;
     /* A single-line value too wide for its box is shrunk to fit rather than cut
        off — "1,200,000" in a narrow table column otherwise printed as "1,200,00". */
-    if (!multiline && it.tag !== 'select' && it.type !== 'checkbox') {
+    /* Dropdowns need more room: Chrome draws a 13pt arrow button inside the
+       field, which hid "Applicant 1" in a narrow Owner column. */
+    if (!multiline && it.type !== 'checkbox') {
       var shown = safeText(it.el.value || '');
       if (isExpenseAmount(it.el)) { shown = moneyText(it.el.value); }
-      while (shown && fixedSize > 5 && ctx.font.widthOfTextAtSize(shown, fixedSize) > width - 9) {   // Preview pads ~4pt a side
+      var room = width - (it.tag === 'select' ? 20 : 9);   // arrow + padding + a little slack; Preview pads ~4pt a side
+      while (shown && fixedSize > 5 && ctx.font.widthOfTextAtSize(shown, fixedSize) > room) {
         fixedSize -= 0.25;
       }
     }
