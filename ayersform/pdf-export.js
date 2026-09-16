@@ -415,6 +415,8 @@
           Math.max(20, width - 5)).join('\n');
       }
       field.setText(value);
+      var group = it.el.getAttribute && it.el.getAttribute('data-sum');
+      if (group && ctx.sums[group]) { ctx.sums[group].push(name); }
     }
 
     field.addToPage(page, {
@@ -425,6 +427,65 @@
     ctx.fieldFontSizes[name] = fixedSize;
     field.setFontSize(fixedSize);
     if (it.el.readOnly && field.enableReadOnly) { field.enableReadOnly(); }
+  }
+
+  /* Living expense totals recalculate inside the downloaded PDF.
+
+     The web form fills the totals in before export, so they are right when the
+     file is saved. These scripts keep them right afterwards: change a figure in
+     the PDF and the column totals and Total Living Expenses follow. Viewers that
+     run form scripts (Adobe Acrobat and Reader, Chrome) do this; macOS Preview
+     does not run them, so there the totals stay as they were at download.
+
+     The script reads each amount the way the web form does — anything that is
+     not a digit, point or minus is ignored, so "$1,200" counts as 1200 — and
+     writes the result in the same style: thousands separators, no ".00". */
+  function sumScript(names) {
+    return [
+      'var names = ' + JSON.stringify(names) + ';',
+      'var t = 0;',
+      'for (var i = 0; i < names.length; i++) {',
+      '  var f = this.getField(names[i]);',
+      '  if (!f) { continue; }',
+      '  var n = parseFloat(String(f.valueAsString).replace(/[^0-9.\\-]/g, ""));',
+      '  if (!isNaN(n)) { t += n; }',
+      '}',
+      'if (!t) { event.value = ""; } else {',
+      '  var neg = t < 0;',
+      '  var s = Math.abs(Math.round(t * 100) / 100).toFixed(2).replace(/\\.?0+$/, "");',
+      '  var parts = s.split(".");',
+      '  parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");',
+      '  event.value = (neg ? "-" : "") + parts.join(".");',
+      '}'
+    ].join('\n');
+  }
+
+  function addExpenseCalculations(pdf, ctx) {
+    var form = ctx.form;
+    function field(name) {
+      try { return form.getTextField(name); } catch (e) { return null; }
+    }
+    var plan = [
+      ['general_total', ctx.sums.general],
+      ['additional_total', ctx.sums.additional],
+      ['total_living_expenses', ['general_total', 'additional_total']]
+    ];
+    var order = [];
+    plan.forEach(function (step) {
+      var target = field(step[0]);
+      if (!target || !step[1].length) { return; }
+      var action = pdf.context.obj({
+        S: 'JavaScript',
+        JS: PDFLib.PDFHexString.fromText(sumScript(step[1]))
+      });
+      target.acroField.dict.set(PDFLib.PDFName.of('AA'), pdf.context.obj({ C: action }));
+      order.push(target.ref);
+    });
+    /* /CO fixes the order: both column totals before the grand total that
+       adds them, or the grand total would be one edit behind. */
+    if (order.length) {
+      form.acroForm.dict.set(PDFLib.PDFName.of('CO'), pdf.context.obj(order));
+    }
   }
 
   /* Masthead logo, drawn from its own SVG paths so it stays vector. */
@@ -470,6 +531,7 @@
       bold: await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold),
       used: Object.create(null),
       fieldFontSizes: Object.create(null),
+      sums: { general: [], additional: [] },   // PDF names of each column's amounts
       pageTopPt: A4_H - MARGIN_TOP
     };
     pdf.setTitle(document.title || 'Ayers Loan Application');
@@ -547,6 +609,7 @@
         });
       }
     });
+    addExpenseCalculations(pdf, ctx);
     return {
       bytes: await pdf.save({ updateFieldAppearances: false }),
       pages: pageCount,

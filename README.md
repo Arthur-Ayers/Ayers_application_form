@@ -55,7 +55,7 @@ recommended because it matches the hosted setup and avoids browser-specific `fil
 
 ## Editing: bump the cache buster
 
-`index.html` loads `styles.css?v=75`, `pdf-export.js?v=77` and `app.js?v=68`. **Increment that number whenever you change
+`index.html` loads `styles.css?v=75`, `pdf-export.js?v=79` and `app.js?v=68`. **Increment that number whenever you change
 either file.** Browsers cache both aggressively; without it an edit can appear to do nothing, and —
 worse — the form can still *print* with the old layout even though the screen looks current. This
 has already caused one bad 6-page print of a form that lays out correctly in 3.
@@ -149,9 +149,14 @@ reopening the page restores it. Nothing is sent anywhere — there is no server 
 An application leaves the browser only when you press **Complete Form**.
 
 Totals calculate as figures are typed, and remain editable rather than locked.
-They are recalculated on restore too. Note that the downloaded PDF stays editable:
-totals in it do **not** recalculate, so a figure amended in the PDF needs its total
-corrected by hand there.
+They are recalculated on restore too.
+
+In the downloaded PDF, the **living expense** totals (both column totals and Total
+Living Expenses) recalculate when a figure is changed, through form scripts built into
+the file. That works in **Adobe Acrobat / Reader** and Chrome's PDF viewer. **macOS
+Preview does not run form scripts**, so there the totals stay as they were at download
+and an amended figure needs its total corrected by hand. Income totals in the PDF do
+not recalculate in any viewer.
 
 ## The PDF
 
