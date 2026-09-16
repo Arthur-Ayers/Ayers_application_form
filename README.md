@@ -55,7 +55,7 @@ recommended because it matches the hosted setup and avoids browser-specific `fil
 
 ## Editing: bump the cache buster
 
-`index.html` loads `styles.css?v=75`, `pdf-export.js?v=79` and `app.js?v=68`. **Increment that number whenever you change
+`index.html` loads `styles.css?v=77`, `pdf-export.js?v=80` and `app.js?v=70`. **Increment that number whenever you change
 either file.** Browsers cache both aggressively; without it an edit can appear to do nothing, and —
 worse — the form can still *print* with the old layout even though the screen looks current. This
 has already caused one bad 6-page print of a form that lays out correctly in 3.
@@ -109,23 +109,33 @@ the markup follows automatically.
   which meant a guarantor's job and income could not be recorded at all.
 - **Assets and liabilities** — motor vehicles, savings, credit cards and car loans start as a
   single row with a **+** instead of a fixed two or four. *Others (please specify)* became
-  **Buy Now Pay Later** with a Bank/Provider field.
+  **Buy Now Pay Later** with a Bank/Provider field. Each credit card and car loan has an
+  **Owner** dropdown.
 - **Property table** — gained **Remaining Loan Term** and a **To Be Refinanced** tick. The
-  address cell wraps and grows so a long address stays visible.
+  address cell wraps and grows so a long address stays visible. *Owner (%)* became an
+  **Owner** dropdown.
+- **Owner dropdowns** (properties, credit cards, car loans, living expenses) list
+  *Applicant 1*, *Applicant 2*, … — one per Personal Details entry — then *Both*. Removing
+  a person clears any choice pointing at them and moves later people's choices up one,
+  matching how Personal Details renumber.
 - **Loan amount** — the PDF never asked how much was being applied for. Added **Loan Amount
   Required**, **Borrower (If Company or Trust)** and **Security / Property Address**.
 - **Employment** — added **Home Duties** to the status options.
 - **Loan Purpose** — was two groups of tick boxes. Now reads as a sequence:
   **Purpose** (Purchase, Construction, Bridging, Refinance, Top-Up, Pre-Approval)
   → **Usage** (Owner-Occupied, Investment, Business / Commercial, SMSF) → a
-  **First Home Guarantee Scheme** tick. Purpose and Usage are dropdowns, since each
-  is one choice. The scheme tick stays locked until Purpose is *Purchase* or
-  *Pre-Approval* **and** Usage is *Owner-Occupied* — a pre-approval counts because it
-  is a purchase that has not happened yet. Making the loan ineligible also clears the
-  tick, so an application can never claim a scheme it does not qualify for.
-  `loan_purpose` and `loan_usage` replace the old `purpose_*` / `usage_*` tick boxes;
-  a draft saved under any earlier version — including the *Build* / *Renovate*
-  wording — carries its choice across on restore.
+  **First Home Guarantee Scheme** tick. Purpose is tick boxes, since a loan can have
+  several purposes (`purpose_*`); Usage is a dropdown (`loan_usage`). The scheme tick
+  stays locked until *Purchase* or *Pre-Approval* is ticked **and** Usage is
+  *Owner-Occupied* — a pre-approval counts because it is a purchase that has not
+  happened yet. Making the loan ineligible also clears the tick, so an application can
+  never claim a scheme it does not qualify for. A draft saved under any earlier version
+  — the single Purpose dropdown, or the *Build* / *Renovate* wording — carries its
+  choice across on restore.
+- **Living expenses** — repeatable with **+ Add living expenses**, for applicants who
+  declare their expenses separately. Each block has a **Living Expenses For** owner
+  dropdown and its own totals. Block 1 keeps the original field names; later blocks
+  prefix theirs `le2_`, `le3_`, …
 - **Continuous form** — the three paper sheets are one scrolling page; it is paginated only
   when exported or printed.
 - **Totals** calculate as figures are typed — per job, per applicant, and for living
@@ -152,7 +162,7 @@ Totals calculate as figures are typed, and remain editable rather than locked.
 They are recalculated on restore too.
 
 In the downloaded PDF, the **living expense** totals (both column totals and Total
-Living Expenses) recalculate when a figure is changed, through form scripts built into
+Living Expenses, separately for each block) recalculate when a figure is changed, through form scripts built into
 the file. That works in **Adobe Acrobat / Reader** and Chrome's PDF viewer. **macOS
 Preview does not run form scripts**, so there the totals stay as they were at download
 and an amended figure needs its total corrected by hand. Income totals in the PDF do

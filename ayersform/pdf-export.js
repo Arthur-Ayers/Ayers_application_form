@@ -415,8 +415,6 @@
           Math.max(20, width - 5)).join('\n');
       }
       field.setText(value);
-      var group = it.el.getAttribute && it.el.getAttribute('data-sum');
-      if (group && ctx.sums[group]) { ctx.sums[group].push(name); }
     }
 
     field.addToPage(page, {
@@ -463,26 +461,41 @@
   function addExpenseCalculations(pdf, ctx) {
     var form = ctx.form;
     function field(name) {
-      try { return form.getTextField(name); } catch (e) { return null; }
+      try { return name ? form.getTextField(name) : null; } catch (e) { return null; }
     }
-    var plan = [
-      ['general_total', ctx.sums.general],
-      ['additional_total', ctx.sums.additional],
-      ['total_living_expenses', ['general_total', 'additional_total']]
-    ];
+    function feeds(block, group) {
+      return $$('[data-sum="' + group + '"]', block)
+        .map(function (el) { return el.name; })
+        .filter(function (name) { return field(name); });
+    }
     var order = [];
-    plan.forEach(function (step) {
-      var target = field(step[0]);
-      if (!target || !step[1].length) { return; }
+    function attach(targetName, names) {
+      var target = field(targetName);
+      if (!target || !names.length) { return; }
       var action = pdf.context.obj({
         S: 'JavaScript',
-        JS: PDFLib.PDFHexString.fromText(sumScript(step[1]))
+        JS: PDFLib.PDFHexString.fromText(sumScript(names))
       });
       target.acroField.dict.set(PDFLib.PDFName.of('AA'), pdf.context.obj({ C: action }));
       order.push(target.ref);
+    }
+
+    /* Each living expense block has its own totals, fed only by its own
+       amounts. /CO fixes the order: every column total first, then the
+       grand totals that add them, or a grand total would be one edit behind. */
+    var grands = [];
+    $$('[data-le-block]').forEach(function (block) {
+      var g = block.querySelector('[data-total="general"]');
+      var a = block.querySelector('[data-total="additional"]');
+      var t = block.querySelector('[data-total="grand"]');
+      if (g) { attach(g.name, feeds(block, 'general')); }
+      if (a) { attach(a.name, feeds(block, 'additional')); }
+      if (t) {
+        grands.push([t.name, [g && g.name, a && a.name].filter(function (n) { return field(n); })]);
+      }
     });
-    /* /CO fixes the order: both column totals before the grand total that
-       adds them, or the grand total would be one edit behind. */
+    grands.forEach(function (x) { attach(x[0], x[1]); });
+
     if (order.length) {
       form.acroForm.dict.set(PDFLib.PDFName.of('CO'), pdf.context.obj(order));
     }
@@ -531,7 +544,6 @@
       bold: await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold),
       used: Object.create(null),
       fieldFontSizes: Object.create(null),
-      sums: { general: [], additional: [] },   // PDF names of each column's amounts
       pageTopPt: A4_H - MARGIN_TOP
     };
     pdf.setTitle(document.title || 'Ayers Loan Application');

@@ -83,11 +83,13 @@
   var ASSETS_RIGHT = [
     { repeat: 'credit_card', label: 'Credit Card #%n Limit', add: '+ Add credit card',
       main: function (i) { return 'credit_card_' + i + '_limit'; }, mainType: 'money',
-      secLabel: 'Bank', sec: function (i) { return 'credit_card_' + i + '_bank'; }, secType: 'text' },
+      secLabel: 'Bank', sec: function (i) { return 'credit_card_' + i + '_bank'; }, secType: 'text',
+      owner: function (i) { return 'credit_card_' + i + '_owner'; } },
     ['personal_loan_limit', 'Personal Loan Limit', 'money', 'personal_loan_bank', 'Bank', 'text'],
     { repeat: 'car_loan', label: 'Car Loan #%n Limit', add: '+ Add car loan',
       main: function (i) { return 'car_loan_' + i + '_limit'; }, mainType: 'money',
-      secLabel: 'Monthly Repayment', sec: function (i) { return 'car_loan_' + i + '_monthly'; }, secType: 'money' },
+      secLabel: 'Monthly Repayment', sec: function (i) { return 'car_loan_' + i + '_monthly'; }, secType: 'money',
+      owner: function (i) { return 'car_loan_' + i + '_owner'; } },
     ['rent_boarding_fee', 'Rent/Boarding Fee', 'money', 'rent_boarding_weekly', 'Weekly Payment', 'money'],
     ['hecs_balance', 'HECS Balance', 'money', 'hecs_monthly', 'Monthly Repayment', 'money'],
     ['buy_now_pay_later', 'Buy Now Pay Later', 'money', 'buy_now_pay_later_provider', 'Bank/<br>Provider', 'text']
@@ -101,6 +103,39 @@
     var out = '<option value="">' + (blankLabel || '') + '</option>';
     list.forEach(function (o) { out += '<option value="' + o + '">' + o + '</option>'; });
     return out;
+  }
+
+  /* Who a property, a debt or a set of living expenses belongs to: one of the
+     people on the application, or both. The choices follow the Personal
+     Details list, so a third person adds "Applicant 3". */
+  function ownerChoices() {
+    var n = $$('[data-person-card]').length || 2;
+    var out = [];
+    for (var i = 1; i <= n; i++) { out.push('Applicant ' + i); }
+    out.push('Both');
+    return out;
+  }
+
+  function ownerSelect(name, label) {
+    return '<select class="owner-select" id="' + name + '" name="' + name + '" aria-label="' + label + '">' +
+      opts(ownerChoices()) + '</select>';
+  }
+
+  /* Rebuild every owner dropdown for the current number of people. When a
+     person is removed, pass their number: a choice pointing at them is
+     cleared, and anyone numbered after them moves up one, the same way their
+     Personal Details renumber. */
+  function syncOwners(removed) {
+    var choices = ownerChoices();
+    $$('select.owner-select').forEach(function (sel) {
+      var v = sel.value, m = /^Applicant (\d+)$/.exec(v);
+      if (removed && m) {
+        var k = parseInt(m[1], 10);
+        if (k === removed) { v = ''; } else if (k > removed) { v = 'Applicant ' + (k - 1); }
+      }
+      sel.innerHTML = opts(choices);
+      sel.value = choices.indexOf(v) >= 0 ? v : '';
+    });
   }
 
   function text(name, label, extra) {
@@ -155,14 +190,17 @@
 
   /* One row of a repeatable asset group (vehicles, savings, cards, car loans). */
   function assetRow(g, i) {
-    var mainName = g.main(i), secName = g.sec(i);
-    return '<div class="pair-row" data-asset-row="' + g.repeat + '" data-asset-index="' + i + '">' +
+    var mainName = g.main(i), secName = g.sec(i), ownerName = g.owner ? g.owner(i) : '';
+    return '<div class="pair-row' + (g.owner ? ' has-owner' : '') + '" data-asset-row="' + g.repeat +
+      '" data-asset-index="' + i + '">' +
       '<label for="' + mainName + '">' + g.label.replace('%n', i) + '</label>' +
       fieldControl(mainName, g.mainType) +
       '<label for="' + secName + '" class="sec">' + g.secLabel + '</label>' +
       '<span class="pair-end">' + fieldControl(secName, g.secType) +
         '<button type="button" class="btn-remove no-print" data-remove="asset" ' +
         'title="Remove">&times;</button></span>' +
+      (g.owner ? '<label for="' + ownerName + '" class="sec">Owner</label>' +
+        ownerSelect(ownerName, 'Owner') + '<span></span>' : '') +
     '</div>';
   }
 
@@ -499,8 +537,7 @@
       cell('bank', 'Bank') +
       cellMoney('monthly_repayment', 'Monthly repayment') +
       cellMoney('weekly_rental', 'Weekly rental') +
-      '<td><input type="text" class="percent" name="' + p +
-        'owner_percent" aria-label="Owner percent"></td>' +
+      '<td>' + ownerSelect(p + 'owner', 'Owner') + '</td>' +
       '<td class="tick-cell"><label class="tick"><input type="checkbox" name="' + p +
         'to_be_refinanced" aria-label="To be refinanced"></label></td>' +
       '<td class="row-tools no-print">' +
@@ -512,6 +549,13 @@
   /* ------------------------------------------------------------------ */
   /* Living expenses                                                     */
   /* ------------------------------------------------------------------ */
+
+  /* Living expenses can be declared more than once — say, a couple's joint
+     household and a guarantor's own — so the section is a list of blocks.
+     Block 1 keeps the original field names (primary_residence, general_total,
+     …) so earlier drafts still restore into it; block 2 onwards prefix theirs
+     with le2_, le3_ and so on. */
+  function lePrefix(n) { return String(n) === '1' ? '' : 'le' + n + '_'; }
 
   function expenseRow(name, label, group, removable) {
     return '<div class="exp-row"' + (removable ? ' data-inv-row' : '') + '>' +
@@ -525,21 +569,23 @@
     '</div>';
   }
 
-  function totalRow(name, label) {
+  function totalRow(name, label, which) {
     return '<div class="exp-row is-total"><label for="' + name + '">' + label + '</label>' +
-      '<div class="money"><span>$</span><input type="text" id="' + name + '" name="' + name + '"></div></div>';
+      '<div class="money"><span>$</span><input type="text" id="' + name + '" name="' + name +
+      '" data-total="' + which + '"></div></div>';
   }
 
-  function investmentRow(i) {
-    return expenseRow('investment_property_' + i + '_expense', 'Investment Property ' + i, 'additional', true);
+  function investmentRow(n, i) {
+    return expenseRow(lePrefix(n) + 'investment_property_' + i + '_expense',
+      'Investment Property ' + i, 'additional', true);
   }
 
-  function otherExpenseBase(group, i) {
-    return group + '_others' + (i === 1 ? '' : '_' + i);
+  function otherExpenseBase(n, group, i) {
+    return lePrefix(n) + group + '_others' + (i === 1 ? '' : '_' + i);
   }
 
-  function otherExpenseRow(group, i) {
-    var base = otherExpenseBase(group, i);
+  function otherExpenseRow(n, group, i) {
+    var base = otherExpenseBase(n, group, i);
     return '<div class="exp-row" data-other-row="' + group + '" data-other-index="' + i + '">' +
       '<div class="expense-other"><label for="' + base + '_detail">Other' + (i > 1 ? ' ' + i : '') + '</label>' +
         '<input type="text" id="' + base + '_detail" name="' + base +
@@ -549,6 +595,49 @@
         '" id="' + base + '" name="' + base + '"></div>' +
         '<button type="button" class="btn-remove no-print" data-remove="other" data-other-group="' +
         group + '" title="Remove this expense">&times;</button></div>' +
+    '</div>';
+  }
+
+  function livingExpenseBlock(n) {
+    var p = lePrefix(n);
+    function rows(list, group) {
+      return list.map(function (e) { return expenseRow(p + e[0], e[1], group, false); }).join('');
+    }
+    function addBtn(attr, label) {
+      return '<div class="add-row no-print"><button type="button" class="btn" ' + attr + '>' +
+        label + '</button></div>';
+    }
+    return '<div class="le-block" data-le-block="' + n + '">' +
+      '<div class="person-head"><h2 class="bar"></h2>' +
+        (n > 1 ? '<button type="button" class="btn-remove no-print" data-remove="le" ' +
+                 'title="Remove these living expenses">&times;</button>' : '') +
+      '</div>' +
+      '<div class="field le-for"><label for="' + p + 'living_expenses_for">Living Expenses For</label>' +
+        ownerSelect(p + 'living_expenses_for', 'Living expenses for') + '</div>' +
+      '<div class="cols">' +
+        '<div class="col-stack">' +
+          '<div class="subhead">General</div>' +
+          rows(GENERAL_EXPENSES, 'general') +
+          '<div data-other-list="general"></div>' +
+          addBtn('data-add-other="general"', '+ Add other expense') +
+          totalRow(p + 'general_total', 'Total', 'general') +
+        '</div>' +
+        '<div class="col-stack">' +
+          '<div class="subhead">Additional</div>' +
+          rows(ADDITIONAL_EXPENSES_TOP, 'additional') +
+          '<div data-inv-list></div>' +
+          addBtn('data-add-inv', '+ Add investment property') +
+          rows(ADDITIONAL_EXPENSES_BOTTOM, 'additional') +
+          '<div data-other-list="additional"></div>' +
+          addBtn('data-add-other="additional"', '+ Add other expense') +
+          totalRow(p + 'additional_total', 'Total', 'additional') +
+        '</div>' +
+      '</div>' +
+      '<div class="grand-total">' +
+        '<label class="field-label" for="' + p + 'total_living_expenses">Total Living Expenses</label>' +
+        '<div class="money"><span>$</span><input type="text" id="' + p + 'total_living_expenses" name="' +
+          p + 'total_living_expenses" data-total="grand"></div>' +
+      '</div>' +
     '</div>';
   }
 
@@ -625,16 +714,18 @@
      say so. A pre-approval counts: it is a purchase that has not happened yet.
      Locking it also clears it, so an application can never leave here claiming
      a scheme the loan is not eligible for. */
-  var SCHEME_PURPOSES = ['Purchase', 'Pre-Approval'];
+  var SCHEME_PURPOSES = ['purpose_purchase', 'purpose_pre_approval'];   // any one of them
 
   function syncScheme() {
     var box = document.querySelector('[name="usage_first_home_guarantee"]');
     if (!box) { return; }
-    var purposeEl = document.querySelector('[name="loan_purpose"]');
     var usageEl = document.querySelector('[name="loan_usage"]');
-    var purpose = purposeEl ? purposeEl.value : '';
     var usage = usageEl ? usageEl.value : '';
-    var ok = SCHEME_PURPOSES.indexOf(purpose) >= 0 && usage === 'Owner-Occupied';
+    var purposeOk = SCHEME_PURPOSES.some(function (name) {
+      var el = document.querySelector('[name="' + name + '"]');
+      return el && el.checked;
+    });
+    var ok = purposeOk && usage === 'Owner-Occupied';
 
     box.disabled = !ok;
     if (!ok) { box.checked = false; }
@@ -679,16 +770,17 @@
       if (grand) { grand.value = fmt(total); }
     });
 
-    var general = 0, additional = 0;
-    $$('[data-sum="general"]').forEach(function (el) { general += num(el.value); });
-    $$('[data-sum="additional"]').forEach(function (el) { additional += num(el.value); });
-
-    var g = document.querySelector('[name="general_total"]');
-    var a = document.querySelector('[name="additional_total"]');
-    var t = document.querySelector('[name="total_living_expenses"]');
-    if (g) { g.value = fmt(general); }
-    if (a) { a.value = fmt(additional); }
-    if (t) { t.value = fmt(general + additional); }
+    $$('[data-le-block]').forEach(function (block) {
+      var general = 0, additional = 0;
+      $$('[data-sum="general"]', block).forEach(function (el) { general += num(el.value); });
+      $$('[data-sum="additional"]', block).forEach(function (el) { additional += num(el.value); });
+      var g = $('[data-total="general"]', block);
+      var a = $('[data-total="additional"]', block);
+      var t = $('[data-total="grand"]', block);
+      if (g) { g.value = fmt(general); }
+      if (a) { a.value = fmt(additional); }
+      if (t) { t.value = fmt(general + additional); }
+    });
   }
 
   /* Totals calculate here but are left editable rather than locked. The
@@ -826,34 +918,38 @@
     return body.lastElementChild;
   }
 
-  function renumberInvestments() {
-    $$('[data-inv-row]').forEach(function (row, idx) {
+  function blockNumber(block) { return block.getAttribute('data-le-block'); }
+
+  function renumberInvestments(block) {
+    var p = lePrefix(blockNumber(block));
+    $$('[data-inv-row]', block).forEach(function (row, idx) {
       var i = idx + 1;
       var current = row.getAttribute('data-inv-index');
       if (current !== String(i)) {
-        renameFields(row, 'investment_property_' + current + '_', 'investment_property_' + i + '_');
+        renameFields(row, p + 'investment_property_' + current + '_', p + 'investment_property_' + i + '_');
         row.setAttribute('data-inv-index', i);
       }
       row.querySelector('label').textContent = 'Investment Property ' + i;
     });
   }
 
-  function addInvestmentExpense() {
-    var anchor = $('#investment-expenses');
-    var i = $$('[data-inv-row]').length + 1;
-    anchor.insertAdjacentHTML('beforeend', investmentRow(i));
+  function addInvestmentExpense(block) {
+    var anchor = $('[data-inv-list]', block);
+    var i = $$('[data-inv-row]', block).length + 1;
+    anchor.insertAdjacentHTML('beforeend', investmentRow(blockNumber(block), i));
     anchor.lastElementChild.setAttribute('data-inv-index', i);
-    renumberInvestments();
+    renumberInvestments(block);
     return anchor.lastElementChild;
   }
 
-  function renumberOtherExpenses(group) {
-    var rows = $$('[data-other-row="' + group + '"]');
+  function renumberOtherExpenses(block, group) {
+    var n = blockNumber(block);
+    var rows = $$('[data-other-row="' + group + '"]', block);
     rows.forEach(function (row, idx) {
       var i = idx + 1;
       var current = parseInt(row.getAttribute('data-other-index'), 10);
       if (current !== i) {
-        renameFields(row, otherExpenseBase(group, current), otherExpenseBase(group, i));
+        renameFields(row, otherExpenseBase(n, group, current), otherExpenseBase(n, group, i));
         row.setAttribute('data-other-index', i);
       }
       row.querySelector('.expense-other label').textContent = i === 1 ? 'Others' : 'Other ' + i;
@@ -861,12 +957,54 @@
     });
   }
 
-  function addOtherExpense(group) {
-    var anchor = $('#' + group + '-other-expenses');
-    var i = $$('[data-other-row="' + group + '"]').length + 1;
-    anchor.insertAdjacentHTML('beforeend', otherExpenseRow(group, i));
-    renumberOtherExpenses(group);
+  function addOtherExpense(block, group) {
+    var anchor = $('[data-other-list="' + group + '"]', block);
+    var i = $$('[data-other-row="' + group + '"]', block).length + 1;
+    anchor.insertAdjacentHTML('beforeend', otherExpenseRow(blockNumber(block), group, i));
+    renumberOtherExpenses(block, group);
     return anchor.lastElementChild;
+  }
+
+  /* Number the blocks and title them. With a single block the heading reads
+     as it always has; once there are two, each carries its number. Block 1 is
+     never removed, so renaming only ever moves le3_ to le2_ and so on. */
+  function renumberLivingExpenses() {
+    var blocks = $$('[data-le-block]');
+    blocks.forEach(function (block, idx) {
+      var i = idx + 1;
+      var was = blockNumber(block);
+      if (was !== String(i) && i > 1) {
+        renameFields(block, lePrefix(was), lePrefix(i));
+        block.setAttribute('data-le-block', i);
+      }
+      $('.bar', block).textContent = 'Monthly Living Expenses' + (blocks.length > 1 ? ' ' + i : '') +
+        ' — Completion is Mandatory';
+    });
+  }
+
+  function setBlockRows(block, c) {
+    var inv = c.investments === undefined ? 2 : c.investments;   // may legitimately be zero
+    var cur = $$('[data-inv-row]', block).length;
+    while (cur < inv) { addInvestmentExpense(block); cur++; }
+    while (cur > inv) { $$('[data-inv-row]', block).pop().remove(); cur--; }
+    renumberInvestments(block);
+    [['general', 'generalOthers'], ['additional', 'additionalOthers']].forEach(function (entry) {
+      var group = entry[0], target = Math.max(1, c[entry[1]] || 1);
+      var have = $$('[data-other-row="' + group + '"]', block).length;
+      while (have < target) { addOtherExpense(block, group); have++; }
+      while (have > target) { $$('[data-other-row="' + group + '"]', block).pop().remove(); have--; }
+      renumberOtherExpenses(block, group);
+    });
+  }
+
+  function addLivingExpenses() {
+    var box = $('#living-expense-blocks');
+    var n = $$('[data-le-block]', box).length + 1;
+    box.insertAdjacentHTML('beforeend', livingExpenseBlock(n));
+    var block = box.lastElementChild;
+    setBlockRows(block, { investments: 2, generalOthers: 1, additionalOthers: 1 });
+    renumberLivingExpenses();
+    return block;
   }
 
   /* People 1 and 2 are permanent; only the extras are renumbered, so the
@@ -929,6 +1067,7 @@
     });
     syncPersonSections();
     syncSuper();
+    syncOwners();
   }
 
   function addPerson() {
@@ -952,6 +1091,7 @@
       if (was !== String(i)) {
         renameFields(row, g.main(was), g.main(i));
         renameFields(row, g.sec(was), g.sec(i));
+        if (g.owner) { renameFields(row, g.owner(was), g.owner(i)); }
         row.setAttribute('data-asset-index', i);
       }
       row.querySelector('label').textContent = g.label.replace('%n', i);
@@ -1011,9 +1151,13 @@
       emp: $$('[data-employment-block]').map(function (b) {
         return $$('[data-emp-card]', b).length;
       }),
-      investments: $$('[data-inv-row]').length,
-      generalOthers: $$('[data-other-row="general"]').length,
-      additionalOthers: $$('[data-other-row="additional"]').length
+      livingExpenses: $$('[data-le-block]').map(function (b) {
+        return {
+          investments: $$('[data-inv-row]', b).length,
+          generalOthers: $$('[data-other-row="general"]', b).length,
+          additionalOthers: $$('[data-other-row="additional"]', b).length
+        };
+      })
     };
   }
 
@@ -1063,31 +1207,24 @@
       while (cur > target) { $$(sel).pop().remove(); cur--; }
     });
 
-    // investments may legitimately be zero
-    var invTarget = c.investments === undefined ? 4 : c.investments;
-    var cur = counts().investments;
-    while (cur < invTarget) { addInvestmentExpense(); cur++; }
-    while (cur > invTarget) { $$('[data-inv-row]').pop().remove(); cur--; }
-
-    [['general', 'generalOthers'], ['additional', 'additionalOthers']].forEach(function (entry) {
-      var group = entry[0], key = entry[1];
-      var target = Math.max(1, c[key] || 1);
-      var otherCount = $$('[data-other-row="' + group + '"]').length;
-      while (otherCount < target) { addOtherExpense(group); otherCount++; }
-      while (otherCount > target) {
-        $$('[data-other-row="' + group + '"]').pop().remove();
-        otherCount--;
-      }
-      renumberOtherExpenses(group);
-    });
+    /* Living expense blocks. Drafts saved before there could be more than one
+       kept these counts at the top level; they belong to block 1. */
+    var leCounts = c.livingExpenses || [{
+      investments: c.investments === undefined ? 4 : c.investments,
+      generalOthers: c.generalOthers, additionalOthers: c.additionalOthers
+    }];
+    var leTarget = Math.max(1, leCounts.length);
+    var leHave = $$('[data-le-block]').length;
+    while (leHave < leTarget) { addLivingExpenses(); leHave++; }
+    while (leHave > leTarget) { $$('[data-le-block]').pop().remove(); leHave--; }
+    renumberLivingExpenses();
+    $$('[data-le-block]').forEach(function (block, idx) { setBlockRows(block, leCounts[idx] || {}); });
 
     renumberPeople();
     syncSuper();
     renumberProperties();
     personIndexes().forEach(renumberEmployment);
-    renumberInvestments();
-    renumberOtherExpenses('general');
-    renumberOtherExpenses('additional');
+    syncOwners();
   }
 
   /* ------------------------------------------------------------------ */
@@ -1127,14 +1264,23 @@
 
   function apply(data) {
     if (!data) { return; }
-    /* Purpose and Usage were six and four tick boxes before they became
-       dropdowns. Carry a saved tick over to the matching option so an
-       application in progress keeps what was chosen. */
+    /* Purpose went from tick boxes to a single dropdown and back to tick
+       boxes, because a loan can have several purposes. A draft saved while it
+       was a dropdown carries its one choice over as a tick. */
+    (function () {
+      var fields = data.fields || {};
+      var PURPOSE_TICK = { 'Purchase': 'purpose_purchase', 'Construction': 'purpose_construction',
+        'Bridging': 'purpose_bridging', 'Refinance': 'purpose_refinance',
+        'Top-Up': 'purpose_topup', 'Pre-Approval': 'purpose_pre_approval' };
+      if (fields.loan_purpose && PURPOSE_TICK[fields.loan_purpose]) {
+        fields[PURPOSE_TICK[fields.loan_purpose]] = true;
+      }
+      delete fields.loan_purpose;
+    })();
+
+    /* Usage was four tick boxes before it became a dropdown. Carry a saved
+       tick over to the matching option. */
     var TICK_TO_OPTION = {
-      loan_purpose: { purpose_purchase: 'Purchase', purpose_construction: 'Construction',
-                      purpose_build: 'Construction', purpose_bridging: 'Bridging',
-                      purpose_renovate: 'Bridging', purpose_refinance: 'Refinance',
-                      purpose_topup: 'Top-Up', purpose_pre_approval: 'Pre-Approval' },
       loan_usage: { usage_owner_occupied: 'Owner-Occupied', usage_investment: 'Investment',
                     usage_business: 'Business / Commercial', usage_smsf: 'SMSF' }
     };
@@ -1206,9 +1352,9 @@
 
   function clearForm() {
     $('#loan-form').reset();
-    setCounts({ people: 2, properties: 3, emp: [1, 1], investments: 2,
+    setCounts({ people: 2, properties: 3, emp: [1, 1],
                 motor_vehicle: 1, savings: 1, credit_card: 1, car_loan: 1,
-                generalOthers: 1, additionalOthers: 1 });
+                livingExpenses: [{ investments: 2, generalOthers: 1, additionalOthers: 1 }] });
     $$('#loan-form [name]').forEach(function (el) {
       if (el.type === 'checkbox') { el.checked = false; } else { el.value = ''; }
     });
@@ -1255,29 +1401,9 @@
     $('#assets-left').innerHTML = ASSETS_LEFT.map(pairRow).join('');
     $('#assets-right').innerHTML = ASSETS_RIGHT.map(pairRow).join('');
 
-    $('#expenses-general').innerHTML =
-      '<div class="subhead">General</div>' +
-      GENERAL_EXPENSES.map(function (e) { return expenseRow(e[0], e[1], 'general', false); }).join('') +
-      '<div id="general-other-expenses"></div>' +
-      '<div class="add-row no-print"><button type="button" class="btn" id="btn-add-general-other">' +
-      '+ Add other expense</button></div>' +
-      totalRow('general_total', 'Total');
-
-    $('#expenses-additional').innerHTML =
-      '<div class="subhead">Additional</div>' +
-      ADDITIONAL_EXPENSES_TOP.map(function (e) { return expenseRow(e[0], e[1], 'additional', false); }).join('') +
-      '<div id="investment-expenses"></div>' +
-      '<div class="add-row no-print"><button type="button" class="btn" id="btn-add-investment">' +
-      '+ Add investment property</button></div>' +
-      ADDITIONAL_EXPENSES_BOTTOM.map(function (e) { return expenseRow(e[0], e[1], 'additional', false); }).join('') +
-      '<div id="additional-other-expenses"></div>' +
-      '<div class="add-row no-print"><button type="button" class="btn" id="btn-add-additional-other">' +
-      '+ Add other expense</button></div>' +
-      totalRow('additional_total', 'Total');
-
-    setCounts({ people: 2, properties: 3, emp: [1, 1], investments: 2,
+    setCounts({ people: 2, properties: 3, emp: [1, 1],
                 motor_vehicle: 1, savings: 1, credit_card: 1, car_loan: 1,
-                generalOthers: 1, additionalOthers: 1 });
+                livingExpenses: [{ investments: 2, generalOthers: 1, additionalOthers: 1 }] });
   }
 
   /* ------------------------------------------------------------------ */
@@ -1321,7 +1447,7 @@
     // only one option in a group can be ticked).
     form.addEventListener('change', function (e) {
       var el = e.target;
-      if (el.name === 'loan_purpose' || el.name === 'loan_usage') { syncScheme(); return; }
+      if (/^purpose_/.test(el.name || '') || el.name === 'loan_usage') { syncScheme(); return; }
       if (el.type !== 'checkbox') { return; }
 
       if (el.hasAttribute('data-current')) {
@@ -1375,17 +1501,29 @@
         if (eb) { eb.remove(); }
         if (ib) { ib.remove(); }
         pcard.remove();
+        syncOwners(parseInt(pi, 10));   // before renumbering, so "Applicant 3" becomes 2
         renumberPeople();
       } else if (kind === 'property') {
         btn.closest('tr').remove();
         renumberProperties();
       } else if (kind === 'inv') {
+        var invBlock = btn.closest('[data-le-block]');
         btn.closest('[data-inv-row]').remove();
-        renumberInvestments();
+        renumberInvestments(invBlock);
+        recalc();
       } else if (kind === 'other') {
         var group = btn.getAttribute('data-other-group');
+        var otherBlock = btn.closest('[data-le-block]');
         btn.closest('[data-other-row]').remove();
-        renumberOtherExpenses(group);
+        renumberOtherExpenses(otherBlock, group);
+        recalc();
+      } else if (kind === 'le') {
+        btn.closest('[data-le-block]').remove();
+        renumberLivingExpenses();
+      } else if (btn.hasAttribute('data-add-inv')) {
+        addInvestmentExpense(btn.closest('[data-le-block]'));
+      } else if (btn.hasAttribute('data-add-other')) {
+        addOtherExpense(btn.closest('[data-le-block]'), btn.getAttribute('data-add-other'));
       }
     });
 
@@ -1396,9 +1534,7 @@
       if (b) { addAsset(b.getAttribute('data-add-asset')); }
     });
     $('#btn-add-property').addEventListener('click', addProperty);
-    $('#btn-add-investment').addEventListener('click', addInvestmentExpense);
-    $('#btn-add-general-other').addEventListener('click', function () { addOtherExpense('general'); });
-    $('#btn-add-additional-other').addEventListener('click', function () { addOtherExpense('additional'); });
+    $('#btn-add-living-expenses').addEventListener('click', addLivingExpenses);
 
     $('#btn-fillable').addEventListener('click', function () {
       var btn = this;

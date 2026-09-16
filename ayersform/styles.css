@@ -356,6 +356,20 @@ select {
 .tick.is-locked { opacity: 0.45; cursor: not-allowed; }
 .tick.is-locked input { cursor: not-allowed; }
 
+/* Purpose allows several ticks; keep the grid tight under its label. */
+.purpose-ticks { margin: 0; }
+.field-label .lbl-note { color: var(--label); font-weight: 400; }
+
+/* Credit cards and car loans carry an Owner line under their figures. */
+.pair-row.has-owner { row-gap: 4px; }
+/* "Applicant 2" does not fit the narrow value column beside its arrow, so the
+   owner dropdown takes the value column and the label column after it. */
+.pair-row .owner-select { grid-column: span 2; }
+
+/* Repeatable living expense blocks */
+.le-block + .le-block { margin-top: 30px; }
+.le-for { max-width: calc(50% - 13px); margin-top: 2px; }
+
 .tick {
   display: flex;
   align-items: center;
