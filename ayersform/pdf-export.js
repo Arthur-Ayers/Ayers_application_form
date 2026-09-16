@@ -483,12 +483,14 @@
       return el ? el.name : null;
     }
 
-    /* One column per person. /CO fixes the order: each column's General and
-       Additional totals, then each column's Total Living Expenses, then the
-       all-applicants total — anything later would be one edit behind. */
-    var people = $$('.exp-head [data-exp-person]', grid).map(function (h) {
-      return h.getAttribute('data-exp-person');
-    });
+    /* One amount column per applicant. /CO fixes the order: each column's
+       General and Additional totals first, then each column's Total Living
+       Expenses and the overall total — anything earlier would be one edit
+       behind. The overall total adds the column totals directly, because with
+       a single column the per-applicant total line is not shown or exported. */
+    var cols = parseInt(grid.getAttribute('data-cols') || '1', 10);
+    var people = [];
+    for (var c = 1; c <= cols; c++) { people.push(String(c)); }
     people.forEach(function (n) {
       ['general', 'additional'].forEach(function (g) {
         attach(totalName(g, n), $$('.exp-cell[data-exp-person="' + n + '"] [data-sum="' + g + '"]', grid)
@@ -500,7 +502,9 @@
     });
     var combined = document.querySelector('[data-total="combined"]');
     if (combined) {
-      attach(combined.name, people.map(function (n) { return totalName('grand', n); }));
+      var parts = [];
+      people.forEach(function (n) { parts.push(totalName('general', n), totalName('additional', n)); });
+      attach(combined.name, parts);
     }
 
     if (order.length) {

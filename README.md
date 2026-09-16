@@ -55,7 +55,7 @@ recommended because it matches the hosted setup and avoids browser-specific `fil
 
 ## Editing: bump the cache buster
 
-`index.html` loads `styles.css?v=79`, `pdf-export.js?v=81` and `app.js?v=73`. **Increment that number whenever you change
+`index.html` loads `styles.css?v=81`, `pdf-export.js?v=82` and `app.js?v=74`. **Increment that number whenever you change
 either file.** Browsers cache both aggressively; without it an edit can appear to do nothing, and —
 worse — the form can still *print* with the old layout even though the screen looks current. This
 has already caused one bad 6-page print of a form that lays out correctly in 3.
@@ -132,14 +132,16 @@ the markup follows automatically.
   never claim a scheme it does not qualify for. A draft saved under any earlier version
   — the single Purpose or Usage dropdown, or the *Build* / *Renovate* wording — carries
   its choice across on restore.
-- **Living expenses** — one amount column per person: *Applicant 1*, *Applicant 2*, and a
-  new column appears when a person is added (headed with their name once entered). Each
-  column has its own General, Additional and Total Living Expenses totals, and **Total
-  Living Expenses (All Applicants)** adds the columns together. Rows — the expense types,
-  investment properties and *Others* — are shared by every column. Cells are named
-  `a<person>_exp_<row>` (e.g. `a2_exp_food_groceries`, `a1_exp_investment_property_2`);
-  an *Others* description is `exp_general_others_1_detail`. Drafts saved with the older
-  single column restore into Applicant 1's column.
+- **Living expenses** — keeps the paper layout, General beside Additional, with one amount
+  column. **+ Add applicant** adds a second and third column so applicants can declare
+  their expenses separately; each is headed *Applicant 1*, *Applicant 2*, … with that
+  person's name once entered, has its own totals, and can be removed with its **×**. With
+  more than one column, per-applicant Total Living Expenses appear at the bottom above
+  **Total Living Expenses (All Applicants)**. Columns are independent of the Personal
+  Details list — adding a person does not add one. Cells are named `a<column>_exp_<row>`
+  (e.g. `a2_exp_food_groceries`, `a1_exp_investment_property_2`); an *Others* description
+  is `exp_general_others_1_detail`. Drafts from the older single-column layout restore
+  into column 1.
 - **Continuous form** — the three paper sheets are one scrolling page; it is paginated only
   when exported or printed.
 - **Totals** calculate as figures are typed — per job, per applicant, and for living
@@ -166,7 +168,7 @@ Totals calculate as figures are typed, and remain editable rather than locked.
 They are recalculated on restore too.
 
 In the downloaded PDF, the **living expense** totals (both column totals and Total
-Living Expenses for each applicant's column, and the all-applicants total) recalculate when a figure is changed, through form scripts built into
+Living Expenses for each applicant column, and the overall total) recalculate when a figure is changed, through form scripts built into
 the file. That works in **Adobe Acrobat / Reader** and Chrome's PDF viewer. **macOS
 Preview does not run form scripts**, so there the totals stay as they were at download
 and an amended figure needs its total corrected by hand. Income totals in the PDF do

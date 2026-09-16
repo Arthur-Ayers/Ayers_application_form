@@ -371,20 +371,31 @@ select {
   background-position: calc(100% - 10px) 9px, calc(100% - 5px) 9px;
 }
 
-/* ---------- Living expenses: one amount column per person ---------- */
-.exp-grid { --people: 2; }
+/* ---------- Living expenses ----------
+   General beside Additional, as on paper. Each row is a label then one amount
+   per applicant column; with a single column it is the original 150px box. */
+.exp-grid { --cols: 1; --amount-w: 150px; }
+.exp-grid[data-cols="2"] { --amount-w: 96px; }
+.exp-grid[data-cols="3"] { --amount-w: 72px; }
 .exp-line {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) repeat(var(--people), minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) repeat(var(--cols), var(--amount-w));
   align-items: center;
   gap: 0 10px;
   margin-bottom: 6px;
 }
+.exp-grid[data-cols="2"] .exp-line,
+.exp-grid[data-cols="3"] .exp-line { gap: 0 6px; }
+.exp-grid[data-cols="3"] .exp-cell input { font-size: 11px; padding-left: 15px; }
+.exp-grid[data-cols="3"] .exp-cell > span { font-size: 11px; left: 6px; }
 .exp-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.exp-label label { font-size: 11.5px; color: var(--ink); white-space: nowrap; }
+.exp-label label { font-size: 11.5px; color: var(--ink); }
 .exp-label .exp-detail { flex: 1; min-width: 0; }
-.exp-head { margin: 12px 0 2px; align-items: end; }
-.exp-col-head { min-width: 0; font-size: 10.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.exp-line.is-total .exp-label label { font-weight: 700; text-transform: uppercase; font-size: 11px; }
+.exp-head { align-items: end; margin-bottom: 7px; }
+.exp-head .subhead { margin: 14px 0 0; }
+.exp-col-head { position: relative; min-width: 0; font-size: 10px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+.exp-col-head .exp-applicant { display: block; padding-right: 14px; }
 .exp-col-head .exp-name {
   display: block;
   font-weight: 400;
@@ -393,19 +404,24 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.exp-section { margin-top: 12px; }
-.exp-line.is-total .exp-label label { font-weight: 700; text-transform: uppercase; font-size: 11px; }
-.exp-line.is-grand { margin-top: 14px; }
-.exp-grid .add-row .btn-sm { margin: 1px 0 7px; }
+.exp-col-head .btn-remove { position: absolute; top: -3px; right: -2px; font-size: 15px; padding: 0 2px; }
+.exp-add-column { margin-top: 8px; }
+
+/* Per-applicant totals under both columns — only once there are two or more. */
+.exp-grid .exp-line.exp-summary { grid-template-columns: 250px repeat(var(--cols), minmax(0, 1fr)); gap: 0 12px; }
+.exp-head.exp-summary { margin: 22px 0 4px; }
+.exp-grid[data-cols="1"] .exp-col-head,
+.exp-grid[data-cols="1"] .exp-summary { display: none; }
+
 .exp-combined {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) repeat(var(--people), minmax(0, 1fr));
+  grid-template-columns: 190px 1fr;
   align-items: center;
-  gap: 0 10px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 22px;
 }
-.exp-combined .money { grid-column: 2 / -1; }
-.exp-combined label { font-weight: 700; text-transform: uppercase; font-size: 11px; color: var(--ink); }
+.exp-grid:not([data-cols="1"]) .exp-combined { margin-top: 10px; grid-template-columns: 250px 1fr; }
+.exp-combined .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--ink); margin: 0; }
 
 .tick {
   display: flex;

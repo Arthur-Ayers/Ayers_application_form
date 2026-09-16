@@ -550,19 +550,22 @@
   /* Living expenses                                                     */
   /* ------------------------------------------------------------------ */
 
-  /* Living expenses: one amount column per person on the application, so a
-     couple's figures sit side by side — Applicant 1, Applicant 2 — and adding
-     a person adds a column. Rows (the expense types, investment properties,
-     others) are shared by every column.
+  /* Living expenses keep the paper layout — General beside Additional — with
+     one amount column to start. "+ Add applicant" adds a second (and third)
+     column so applicants can declare their expenses separately; each column
+     is headed Applicant 1, Applicant 2, … with that person's name once it is
+     entered, and has its own totals.
 
      Names are worked out from position rather than stored: a cell is
-     a<person>_exp_<row key>, e.g. a2_exp_food_groceries or
+     a<column>_exp_<row key>, e.g. a2_exp_food_groceries or
      a1_exp_investment_property_2, and an "Others" description is
      exp_general_others_1_detail. renameExpenseGrid() rewrites them whenever
-     a row or a person is added or removed, so they never go stale. */
-  function expLine(attrs, labelHtml) {
-    return '<div class="exp-line" data-exp-row ' + attrs + '><div class="exp-label">' + labelHtml +
-      '</div></div>';
+     a row or a column is added or removed, so they never go stale. */
+  var MAX_EXPENSE_COLUMNS = 3;   // three is as many as fit beside a label in half the page
+
+  function expLine(attrs, labelHtml, extraClass) {
+    return '<div class="exp-line' + (extraClass ? ' ' + extraClass : '') + '" data-exp-row ' + attrs + '>' +
+      '<div class="exp-label">' + labelHtml + '</div></div>';
   }
 
   function expFixedLine(e, group) {
@@ -582,39 +585,48 @@
       'title="Remove this expense">&times;</button>');
   }
 
-  function expTotalLine(which, label) {
+  function expTotalLine(which, label, extraClass) {
     var key = which === 'grand' ? 'total' : which + '_total';
-    return '<div class="exp-line is-total' + (which === 'grand' ? ' is-grand' : '') + '" data-exp-row ' +
-      'data-exp-key="' + key + '" data-exp-total="' + which + '">' +
-      '<div class="exp-label"><label>' + label + '</label></div></div>';
+    return expLine('data-exp-key="' + key + '" data-exp-total="' + which + '"', '<label>' + label + '</label>',
+      'is-total' + (extraClass ? ' ' + extraClass : ''));
+  }
+
+  function expHead(title, extraClass) {
+    return '<div class="exp-line exp-head' + (extraClass ? ' ' + extraClass : '') + '">' +
+      '<div class="exp-label">' + (title ? '<div class="subhead">' + title + '</div>' : '') + '</div></div>';
   }
 
   function expAddButton(attr, label) {
-    return '<div class="add-row no-print"><button type="button" class="btn btn-sm" ' + attr + '>' +
-      label + '</button></div>';
+    return '<div class="add-row no-print"><button type="button" class="btn" ' + attr + '>' + label +
+      '</button></div>';
   }
 
   function buildExpenseGrid() {
-    var grid = $('#living-expenses');
-    grid.innerHTML =
-      '<div class="exp-line exp-head"><div class="exp-label"></div></div>' +
-      '<div class="subhead exp-section">General</div>' +
-      GENERAL_EXPENSES.map(function (e) { return expFixedLine(e, 'general'); }).join('') +
-      '<div data-exp-others="general"></div>' +
-      expAddButton('data-add-exp-other="general"', '+ Add other expense') +
-      expTotalLine('general', 'Total') +
-      '<div class="subhead exp-section">Additional</div>' +
-      ADDITIONAL_EXPENSES_TOP.map(function (e) { return expFixedLine(e, 'additional'); }).join('') +
-      '<div data-exp-invs></div>' +
-      expAddButton('data-add-exp-inv', '+ Add investment property') +
-      ADDITIONAL_EXPENSES_BOTTOM.map(function (e) { return expFixedLine(e, 'additional'); }).join('') +
-      '<div data-exp-others="additional"></div>' +
-      expAddButton('data-add-exp-other="additional"', '+ Add other expense') +
-      expTotalLine('additional', 'Total') +
-      expTotalLine('grand', 'Total Living Expenses') +
-      // spans every person's column, so it lines up under them
+    $('#living-expenses').innerHTML =
+      '<div class="cols">' +
+        '<div class="col-stack" data-exp-section="general">' +
+          expHead('General') +
+          GENERAL_EXPENSES.map(function (e) { return expFixedLine(e, 'general'); }).join('') +
+          '<div data-exp-others="general"></div>' +
+          expAddButton('data-add-exp-other="general"', '+ Add other expense') +
+          expTotalLine('general', 'Total') +
+        '</div>' +
+        '<div class="col-stack" data-exp-section="additional">' +
+          expHead('Additional') +
+          ADDITIONAL_EXPENSES_TOP.map(function (e) { return expFixedLine(e, 'additional'); }).join('') +
+          '<div data-exp-invs></div>' +
+          expAddButton('data-add-exp-inv', '+ Add investment property') +
+          ADDITIONAL_EXPENSES_BOTTOM.map(function (e) { return expFixedLine(e, 'additional'); }).join('') +
+          '<div data-exp-others="additional"></div>' +
+          expAddButton('data-add-exp-other="additional"', '+ Add other expense') +
+          expTotalLine('additional', 'Total') +
+        '</div>' +
+      '</div>' +
+      // Per-applicant totals: only shown once there is more than one column.
+      expHead('', 'exp-summary') +
+      expTotalLine('grand', 'Total Living Expenses', 'exp-summary') +
       '<div class="exp-combined">' +
-        '<div class="exp-label"><label for="total_living_expenses">Total Living Expenses (All Applicants)</label></div>' +
+        '<label class="field-label" for="total_living_expenses">Total Living Expenses</label>' +
         '<div class="money"><span>$</span><input type="text" id="total_living_expenses" ' +
           'name="total_living_expenses" data-total="combined"></div>' +
       '</div>';
@@ -623,7 +635,9 @@
   function expCell(line) {
     if (line.classList.contains('exp-head')) {
       return '<div class="exp-col-head" data-exp-person="0"><span class="exp-applicant"></span>' +
-        '<span class="exp-name"></span></div>';
+        '<span class="exp-name"></span>' +
+        '<button type="button" class="btn-remove no-print" data-remove="exp-column" ' +
+        'title="Remove this applicant’s column">&times;</button></div>';
     }
     var total = line.getAttribute('data-exp-total');
     return '<div class="money exp-cell" data-exp-person="0"><span>$</span><input type="text" ' +
@@ -640,6 +654,11 @@
       return line.getAttribute('data-exp-other') + '_others_' + line.getAttribute('data-exp-index');
     }
     return line.getAttribute('data-exp-key');
+  }
+
+  function expenseColumns() {
+    var grid = $('#living-expenses');
+    return grid ? parseInt(grid.getAttribute('data-cols') || '1', 10) : 1;
   }
 
   function renameExpenseGrid() {
@@ -664,7 +683,13 @@
       $$('[data-exp-person]', line).forEach(function (cell, idx) {
         var n = idx + 1;
         cell.setAttribute('data-exp-person', n);
-        if (isHead) { return; }
+        if (isHead) {
+          // one remove button per column, on the General heading, never on column 1
+          var rm = $('[data-remove="exp-column"]', cell);
+          var inGeneral = !!line.closest('[data-exp-section="general"]');
+          rm.style.display = n > 1 && inGeneral ? '' : 'none';
+          return;
+        }
         var input = $('input', cell);
         input.name = input.id = 'a' + n + '_exp_' + key;
         input.setAttribute('aria-label', (label ? label.textContent : '') + ' — Applicant ' + n);
@@ -681,7 +706,7 @@
     });
   }
 
-  /* Column headings: "Applicant 1" and, once entered, the person's name. */
+  /* Column headings: "Applicant 1" and, once entered, that person's name. */
   function syncExpenseHeads() {
     $$('#living-expenses .exp-col-head').forEach(function (head) {
       var n = head.getAttribute('data-exp-person');
@@ -691,22 +716,24 @@
     });
   }
 
-  /* One column per person. Call after a person's cells have been removed —
-     the remaining cells keep their order, so renumbering by position moves
-     Applicant 3's figures into column 2 along with the person. */
-  function syncExpenseColumns() {
+  function syncExpenseColumns(cols) {
     var grid = $('#living-expenses');
     if (!grid) { return; }
-    var people = $$('[data-person-card]').length;
-    grid.style.setProperty('--people', people);
+    cols = Math.max(1, Math.min(MAX_EXPENSE_COLUMNS, cols || expenseColumns()));
+    grid.setAttribute('data-cols', cols);
+    grid.style.setProperty('--cols', cols);
     $$('.exp-line', grid).forEach(function (line) {
       var cells = $$('[data-exp-person]', line);
-      while (cells.length < people) {
+      while (cells.length < cols) {
         line.insertAdjacentHTML('beforeend', expCell(line));
         cells = $$('[data-exp-person]', line);
       }
-      while (cells.length > people) { cells.pop().remove(); }
+      while (cells.length > cols) { cells.pop().remove(); }
     });
+    var combinedLabel = $('.exp-combined label', grid);
+    combinedLabel.textContent = cols > 1 ? 'Total Living Expenses (All Applicants)' : 'Total Living Expenses';
+    var add = $('#btn-add-exp-column');
+    if (add) { add.parentNode.style.display = cols < MAX_EXPENSE_COLUMNS ? '' : 'none'; }
     renameExpenseGrid();
     syncExpenseHeads();
   }
@@ -724,7 +751,7 @@
       fit('[data-exp-other="' + group + '"]', '[data-exp-others="' + group + '"]', target,
           function () { return expOtherLine(group); });
     });
-    syncExpenseColumns();
+    syncExpenseColumns(c.columns || 1);
   }
 
   function addExpenseInvestment() {
@@ -735,6 +762,21 @@
   function addExpenseOther(group) {
     $('#living-expenses [data-exp-others="' + group + '"]').insertAdjacentHTML('beforeend', expOtherLine(group));
     syncExpenseColumns();
+  }
+
+  function addExpenseColumn() {
+    syncExpenseColumns(expenseColumns() + 1);
+    recalc();
+  }
+
+  /* Drop one applicant's column; later columns move up, figures and all. */
+  function removeExpenseColumn(n) {
+    var cols = expenseColumns();
+    if (cols < 2 || n < 2) { return; }
+    $$('#living-expenses [data-exp-person="' + n + '"]').forEach(function (c) { c.remove(); });
+    $('#living-expenses').setAttribute('data-cols', cols - 1);
+    syncExpenseColumns(cols - 1);
+    recalc();
   }
 
   /* Grow a textarea to fit what has been typed, so nothing is hidden below
@@ -869,8 +911,8 @@
     var grid = $('#living-expenses');
     if (grid) {
       var combined = 0;
-      $$('.exp-head [data-exp-person]', grid).forEach(function (head) {
-        var n = head.getAttribute('data-exp-person');
+      for (var col = 1; col <= expenseColumns(); col++) {
+        var n = String(col);
         var cells = '.exp-cell[data-exp-person="' + n + '"] ';
         var sums = { general: 0, additional: 0 };
         Object.keys(sums).forEach(function (g) {
@@ -884,7 +926,7 @@
         set('additional', sums.additional);
         set('grand', sums.general + sums.additional);
         combined += sums.general + sums.additional;
-      });
+      }
       var all = document.querySelector('[data-total="combined"]');
       if (all) { all.value = fmt(combined); }
     }
@@ -1086,7 +1128,7 @@
     syncPersonSections();
     syncSuper();
     syncOwners();
-    syncExpenseColumns();
+    syncExpenseHeads();   // column headings show people's names
   }
 
   function addPerson() {
@@ -1173,7 +1215,8 @@
       expenses: {
         investments: $$('#living-expenses [data-exp-inv]').length,
         generalOthers: $$('#living-expenses [data-exp-other="general"]').length,
-        additionalOthers: $$('#living-expenses [data-exp-other="additional"]').length
+        additionalOthers: $$('#living-expenses [data-exp-other="additional"]').length,
+        columns: expenseColumns()
       }
     };
   }
@@ -1240,6 +1283,7 @@
         ex.additionalOthers = Math.max(ex.additionalOthers, b.additionalOthers || 1);
       });
     }
+    ex = Object.assign({}, ex, { columns: Math.max(ex.columns || 1, c.expenseColumns || 1) });
     setExpenseRows(ex);
 
     renumberPeople();
@@ -1347,6 +1391,20 @@
       });
     })();
 
+    /* A draft may hold figures for later applicant columns without saying how
+       many columns there were (the briefly people-linked version). Open as
+       many as its figures need. */
+    (function () {
+      var fields = data.fields || {};
+      var need = 1;
+      Object.keys(fields).forEach(function (name) {
+        var m = /^a(\d+)_exp_(?!(general_total|additional_total|total)$)/.exec(name);
+        if (m && fields[name] !== '') { need = Math.max(need, parseInt(m[1], 10)); }
+      });
+      data.counts = data.counts || {};
+      data.counts.expenseColumns = need;
+    })();
+
     /* "Build" and "Renovate" became "Construction" and "Bridging". Carry the
        tick over so an application saved under the old wording keeps it. */
     [['purpose_build', 'purpose_construction'],
@@ -1407,7 +1465,7 @@
     $('#loan-form').reset();
     setCounts({ people: 2, properties: 3, emp: [1, 1],
                 motor_vehicle: 1, savings: 1, credit_card: 1, car_loan: 1,
-                expenses: { investments: 2, generalOthers: 1, additionalOthers: 1 } });
+                expenses: { investments: 2, generalOthers: 1, additionalOthers: 1, columns: 1 } });
     $$('#loan-form [name]').forEach(function (el) {
       if (el.type === 'checkbox') { el.checked = false; } else { el.value = ''; }
     });
@@ -1457,7 +1515,7 @@
 
     setCounts({ people: 2, properties: 3, emp: [1, 1],
                 motor_vehicle: 1, savings: 1, credit_card: 1, car_loan: 1,
-                expenses: { investments: 2, generalOthers: 1, additionalOthers: 1 } });
+                expenses: { investments: 2, generalOthers: 1, additionalOthers: 1, columns: 1 } });
   }
 
   /* ------------------------------------------------------------------ */
@@ -1559,7 +1617,6 @@
         if (ib) { ib.remove(); }
         pcard.remove();
         syncOwners(parseInt(pi, 10));   // before renumbering, so "Applicant 3" becomes 2
-        $$('#living-expenses [data-exp-person="' + pi + '"]').forEach(function (c) { c.remove(); });
         renumberPeople();
         recalc();   // their expenses leave the all-applicants total
       } else if (kind === 'property') {
@@ -1569,6 +1626,8 @@
         btn.closest('.exp-line').remove();
         renameExpenseGrid();
         recalc();
+      } else if (kind === 'exp-column') {
+        removeExpenseColumn(parseInt(btn.closest('[data-exp-person]').getAttribute('data-exp-person'), 10));
       } else if (btn.hasAttribute('data-add-exp-inv')) {
         addExpenseInvestment();
       } else if (btn.hasAttribute('data-add-exp-other')) {
@@ -1583,6 +1642,7 @@
       if (b) { addAsset(b.getAttribute('data-add-asset')); }
     });
     $('#btn-add-property').addEventListener('click', addProperty);
+    $('#btn-add-exp-column').addEventListener('click', addExpenseColumn);
 
     $('#btn-fillable').addEventListener('click', function () {
       var btn = this;
