@@ -460,17 +460,15 @@
 
   function addExpenseCalculations(pdf, ctx) {
     var form = ctx.form;
+    var grid = document.getElementById('living-expenses');
+    if (!grid) { return; }
     function field(name) {
       try { return name ? form.getTextField(name) : null; } catch (e) { return null; }
-    }
-    function feeds(block, group) {
-      return $$('[data-sum="' + group + '"]', block)
-        .map(function (el) { return el.name; })
-        .filter(function (name) { return field(name); });
     }
     var order = [];
     function attach(targetName, names) {
       var target = field(targetName);
+      names = names.filter(function (n) { return field(n); });
       if (!target || !names.length) { return; }
       var action = pdf.context.obj({
         S: 'JavaScript',
@@ -479,22 +477,31 @@
       target.acroField.dict.set(PDFLib.PDFName.of('AA'), pdf.context.obj({ C: action }));
       order.push(target.ref);
     }
+    function totalName(which, n) {
+      var el = grid.querySelector('.exp-line[data-exp-total="' + which + '"] ' +
+        '.exp-cell[data-exp-person="' + n + '"] input');
+      return el ? el.name : null;
+    }
 
-    /* Each living expense block has its own totals, fed only by its own
-       amounts. /CO fixes the order: every column total first, then the
-       grand totals that add them, or a grand total would be one edit behind. */
-    var grands = [];
-    $$('[data-le-block]').forEach(function (block) {
-      var g = block.querySelector('[data-total="general"]');
-      var a = block.querySelector('[data-total="additional"]');
-      var t = block.querySelector('[data-total="grand"]');
-      if (g) { attach(g.name, feeds(block, 'general')); }
-      if (a) { attach(a.name, feeds(block, 'additional')); }
-      if (t) {
-        grands.push([t.name, [g && g.name, a && a.name].filter(function (n) { return field(n); })]);
-      }
+    /* One column per person. /CO fixes the order: each column's General and
+       Additional totals, then each column's Total Living Expenses, then the
+       all-applicants total — anything later would be one edit behind. */
+    var people = $$('.exp-head [data-exp-person]', grid).map(function (h) {
+      return h.getAttribute('data-exp-person');
     });
-    grands.forEach(function (x) { attach(x[0], x[1]); });
+    people.forEach(function (n) {
+      ['general', 'additional'].forEach(function (g) {
+        attach(totalName(g, n), $$('.exp-cell[data-exp-person="' + n + '"] [data-sum="' + g + '"]', grid)
+          .map(function (el) { return el.name; }));
+      });
+    });
+    people.forEach(function (n) {
+      attach(totalName('grand', n), [totalName('general', n), totalName('additional', n)]);
+    });
+    var combined = document.querySelector('[data-total="combined"]');
+    if (combined) {
+      attach(combined.name, people.map(function (n) { return totalName('grand', n); }));
+    }
 
     if (order.length) {
       form.acroForm.dict.set(PDFLib.PDFName.of('CO'), pdf.context.obj(order));

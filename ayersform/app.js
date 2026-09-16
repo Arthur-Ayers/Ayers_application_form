@@ -200,7 +200,7 @@
         '<button type="button" class="btn-remove no-print" data-remove="asset" ' +
         'title="Remove">&times;</button></span>' +
       (g.owner ? '<label for="' + ownerName + '" class="sec">Owner</label>' +
-        ownerSelect(ownerName, 'Owner') + '<span></span>' : '') +
+        ownerSelect(ownerName, 'Owner') + '<span></span><span></span>' : '') +
     '</div>';
   }
 
@@ -550,95 +550,191 @@
   /* Living expenses                                                     */
   /* ------------------------------------------------------------------ */
 
-  /* Living expenses can be declared more than once — say, a couple's joint
-     household and a guarantor's own — so the section is a list of blocks.
-     Block 1 keeps the original field names (primary_residence, general_total,
-     …) so earlier drafts still restore into it; block 2 onwards prefix theirs
-     with le2_, le3_ and so on. */
-  function lePrefix(n) { return String(n) === '1' ? '' : 'le' + n + '_'; }
+  /* Living expenses: one amount column per person on the application, so a
+     couple's figures sit side by side — Applicant 1, Applicant 2 — and adding
+     a person adds a column. Rows (the expense types, investment properties,
+     others) are shared by every column.
 
-  function expenseRow(name, label, group, removable) {
-    return '<div class="exp-row"' + (removable ? ' data-inv-row' : '') + '>' +
-      '<label for="' + name + '">' + label + '</label>' +
-      '<div class="rm">' +
-        '<div class="money" style="flex:1"><span>$</span>' +
-          '<input type="text" inputmode="decimal" class="amount" data-sum="' + group + '" id="' + name +
-          '" name="' + name + '"></div>' +
-        (removable ? '<button type="button" class="btn-remove no-print" data-remove="inv" title="Remove">&times;</button>' : '') +
-      '</div>' +
-    '</div>';
+     Names are worked out from position rather than stored: a cell is
+     a<person>_exp_<row key>, e.g. a2_exp_food_groceries or
+     a1_exp_investment_property_2, and an "Others" description is
+     exp_general_others_1_detail. renameExpenseGrid() rewrites them whenever
+     a row or a person is added or removed, so they never go stale. */
+  function expLine(attrs, labelHtml) {
+    return '<div class="exp-line" data-exp-row ' + attrs + '><div class="exp-label">' + labelHtml +
+      '</div></div>';
   }
 
-  function totalRow(name, label, which) {
-    return '<div class="exp-row is-total"><label for="' + name + '">' + label + '</label>' +
-      '<div class="money"><span>$</span><input type="text" id="' + name + '" name="' + name +
-      '" data-total="' + which + '"></div></div>';
+  function expFixedLine(e, group) {
+    return expLine('data-exp-key="' + e[0] + '" data-exp-group="' + group + '"', '<label>' + e[1] + '</label>');
   }
 
-  function investmentRow(n, i) {
-    return expenseRow(lePrefix(n) + 'investment_property_' + i + '_expense',
-      'Investment Property ' + i, 'additional', true);
+  function expInvestmentLine() {
+    return expLine('data-exp-inv data-exp-group="additional"',
+      '<label></label><button type="button" class="btn-remove no-print" data-remove="exp-inv" ' +
+      'title="Remove">&times;</button>');
   }
 
-  function otherExpenseBase(n, group, i) {
-    return lePrefix(n) + group + '_others' + (i === 1 ? '' : '_' + i);
+  function expOtherLine(group) {
+    return expLine('data-exp-other="' + group + '" data-exp-group="' + group + '"',
+      '<label></label><input type="text" class="exp-detail" placeholder="Please specify">' +
+      '<button type="button" class="btn-remove no-print" data-remove="exp-other" ' +
+      'title="Remove this expense">&times;</button>');
   }
 
-  function otherExpenseRow(n, group, i) {
-    var base = otherExpenseBase(n, group, i);
-    return '<div class="exp-row" data-other-row="' + group + '" data-other-index="' + i + '">' +
-      '<div class="expense-other"><label for="' + base + '_detail">Other' + (i > 1 ? ' ' + i : '') + '</label>' +
-        '<input type="text" id="' + base + '_detail" name="' + base +
-        '_detail" placeholder="Please specify"></div>' +
-      '<div class="rm"><div class="money" style="flex:1"><span>$</span>' +
-        '<input type="text" inputmode="decimal" class="amount" data-sum="' + group +
-        '" id="' + base + '" name="' + base + '"></div>' +
-        '<button type="button" class="btn-remove no-print" data-remove="other" data-other-group="' +
-        group + '" title="Remove this expense">&times;</button></div>' +
-    '</div>';
+  function expTotalLine(which, label) {
+    var key = which === 'grand' ? 'total' : which + '_total';
+    return '<div class="exp-line is-total' + (which === 'grand' ? ' is-grand' : '') + '" data-exp-row ' +
+      'data-exp-key="' + key + '" data-exp-total="' + which + '">' +
+      '<div class="exp-label"><label>' + label + '</label></div></div>';
   }
 
-  function livingExpenseBlock(n) {
-    var p = lePrefix(n);
-    function rows(list, group) {
-      return list.map(function (e) { return expenseRow(p + e[0], e[1], group, false); }).join('');
+  function expAddButton(attr, label) {
+    return '<div class="add-row no-print"><button type="button" class="btn btn-sm" ' + attr + '>' +
+      label + '</button></div>';
+  }
+
+  function buildExpenseGrid() {
+    var grid = $('#living-expenses');
+    grid.innerHTML =
+      '<div class="exp-line exp-head"><div class="exp-label"></div></div>' +
+      '<div class="subhead exp-section">General</div>' +
+      GENERAL_EXPENSES.map(function (e) { return expFixedLine(e, 'general'); }).join('') +
+      '<div data-exp-others="general"></div>' +
+      expAddButton('data-add-exp-other="general"', '+ Add other expense') +
+      expTotalLine('general', 'Total') +
+      '<div class="subhead exp-section">Additional</div>' +
+      ADDITIONAL_EXPENSES_TOP.map(function (e) { return expFixedLine(e, 'additional'); }).join('') +
+      '<div data-exp-invs></div>' +
+      expAddButton('data-add-exp-inv', '+ Add investment property') +
+      ADDITIONAL_EXPENSES_BOTTOM.map(function (e) { return expFixedLine(e, 'additional'); }).join('') +
+      '<div data-exp-others="additional"></div>' +
+      expAddButton('data-add-exp-other="additional"', '+ Add other expense') +
+      expTotalLine('additional', 'Total') +
+      expTotalLine('grand', 'Total Living Expenses') +
+      // spans every person's column, so it lines up under them
+      '<div class="exp-combined">' +
+        '<div class="exp-label"><label for="total_living_expenses">Total Living Expenses (All Applicants)</label></div>' +
+        '<div class="money"><span>$</span><input type="text" id="total_living_expenses" ' +
+          'name="total_living_expenses" data-total="combined"></div>' +
+      '</div>';
+  }
+
+  function expCell(line) {
+    if (line.classList.contains('exp-head')) {
+      return '<div class="exp-col-head" data-exp-person="0"><span class="exp-applicant"></span>' +
+        '<span class="exp-name"></span></div>';
     }
-    function addBtn(attr, label) {
-      return '<div class="add-row no-print"><button type="button" class="btn" ' + attr + '>' +
-        label + '</button></div>';
+    var total = line.getAttribute('data-exp-total');
+    return '<div class="money exp-cell" data-exp-person="0"><span>$</span><input type="text" ' +
+      (total ? 'data-total="' + total + '"'
+             : 'inputmode="decimal" class="amount" data-sum="' + line.getAttribute('data-exp-group') + '"') +
+      '></div>';
+  }
+
+  function expKey(line) {
+    if (line.hasAttribute('data-exp-inv')) {
+      return 'investment_property_' + line.getAttribute('data-exp-index');
     }
-    return '<div class="le-block" data-le-block="' + n + '">' +
-      '<div class="person-head"><h2 class="bar"></h2>' +
-        (n > 1 ? '<button type="button" class="btn-remove no-print" data-remove="le" ' +
-                 'title="Remove these living expenses">&times;</button>' : '') +
-      '</div>' +
-      '<div class="field le-for"><label for="' + p + 'living_expenses_for">Living Expenses For</label>' +
-        ownerSelect(p + 'living_expenses_for', 'Living expenses for') + '</div>' +
-      '<div class="cols">' +
-        '<div class="col-stack">' +
-          '<div class="subhead">General</div>' +
-          rows(GENERAL_EXPENSES, 'general') +
-          '<div data-other-list="general"></div>' +
-          addBtn('data-add-other="general"', '+ Add other expense') +
-          totalRow(p + 'general_total', 'Total', 'general') +
-        '</div>' +
-        '<div class="col-stack">' +
-          '<div class="subhead">Additional</div>' +
-          rows(ADDITIONAL_EXPENSES_TOP, 'additional') +
-          '<div data-inv-list></div>' +
-          addBtn('data-add-inv', '+ Add investment property') +
-          rows(ADDITIONAL_EXPENSES_BOTTOM, 'additional') +
-          '<div data-other-list="additional"></div>' +
-          addBtn('data-add-other="additional"', '+ Add other expense') +
-          totalRow(p + 'additional_total', 'Total', 'additional') +
-        '</div>' +
-      '</div>' +
-      '<div class="grand-total">' +
-        '<label class="field-label" for="' + p + 'total_living_expenses">Total Living Expenses</label>' +
-        '<div class="money"><span>$</span><input type="text" id="' + p + 'total_living_expenses" name="' +
-          p + 'total_living_expenses" data-total="grand"></div>' +
-      '</div>' +
-    '</div>';
+    if (line.hasAttribute('data-exp-other')) {
+      return line.getAttribute('data-exp-other') + '_others_' + line.getAttribute('data-exp-index');
+    }
+    return line.getAttribute('data-exp-key');
+  }
+
+  function renameExpenseGrid() {
+    var grid = $('#living-expenses');
+    if (!grid) { return; }
+    $$('[data-exp-inv]', grid).forEach(function (line, idx) {
+      line.setAttribute('data-exp-index', idx + 1);
+      $('label', line).textContent = 'Investment Property ' + (idx + 1);
+    });
+    ['general', 'additional'].forEach(function (group) {
+      var rows = $$('[data-exp-other="' + group + '"]', grid);
+      rows.forEach(function (line, idx) {
+        line.setAttribute('data-exp-index', idx + 1);
+        $('label', line).textContent = idx === 0 ? 'Others' : 'Other ' + (idx + 1);
+        $('[data-remove="exp-other"]', line).style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+      });
+    });
+    $$('.exp-line', grid).forEach(function (line) {
+      var isHead = line.classList.contains('exp-head');
+      var key = isHead ? '' : expKey(line);
+      var label = isHead ? null : $('.exp-label label', line);
+      $$('[data-exp-person]', line).forEach(function (cell, idx) {
+        var n = idx + 1;
+        cell.setAttribute('data-exp-person', n);
+        if (isHead) { return; }
+        var input = $('input', cell);
+        input.name = input.id = 'a' + n + '_exp_' + key;
+        input.setAttribute('aria-label', (label ? label.textContent : '') + ' — Applicant ' + n);
+      });
+      if (isHead) { return; }
+      var detail = $('.exp-detail', line);
+      if (detail) {
+        detail.name = detail.id = 'exp_' + key + '_detail';
+        label.htmlFor = detail.id;
+      } else {
+        var first = $('.exp-cell input', line);
+        if (first) { label.htmlFor = first.id; }
+      }
+    });
+  }
+
+  /* Column headings: "Applicant 1" and, once entered, the person's name. */
+  function syncExpenseHeads() {
+    $$('#living-expenses .exp-col-head').forEach(function (head) {
+      var n = head.getAttribute('data-exp-person');
+      var name = [val('a' + n + '_given_names'), val('a' + n + '_surname')].filter(Boolean).join(' ');
+      $('.exp-applicant', head).textContent = 'Applicant ' + n;
+      $('.exp-name', head).textContent = name || ' ';
+    });
+  }
+
+  /* One column per person. Call after a person's cells have been removed —
+     the remaining cells keep their order, so renumbering by position moves
+     Applicant 3's figures into column 2 along with the person. */
+  function syncExpenseColumns() {
+    var grid = $('#living-expenses');
+    if (!grid) { return; }
+    var people = $$('[data-person-card]').length;
+    grid.style.setProperty('--people', people);
+    $$('.exp-line', grid).forEach(function (line) {
+      var cells = $$('[data-exp-person]', line);
+      while (cells.length < people) {
+        line.insertAdjacentHTML('beforeend', expCell(line));
+        cells = $$('[data-exp-person]', line);
+      }
+      while (cells.length > people) { cells.pop().remove(); }
+    });
+    renameExpenseGrid();
+    syncExpenseHeads();
+  }
+
+  function setExpenseRows(c) {
+    var grid = $('#living-expenses');
+    function fit(sel, box, target, make) {
+      var have = $$(sel, grid).length;
+      while (have < target) { $(box, grid).insertAdjacentHTML('beforeend', make()); have++; }
+      while (have > target) { $$(sel, grid).pop().remove(); have--; }
+    }
+    fit('[data-exp-inv]', '[data-exp-invs]', c.investments === undefined ? 2 : c.investments, expInvestmentLine);
+    ['general', 'additional'].forEach(function (group) {
+      var target = Math.max(1, c[group + 'Others'] || 1);
+      fit('[data-exp-other="' + group + '"]', '[data-exp-others="' + group + '"]', target,
+          function () { return expOtherLine(group); });
+    });
+    syncExpenseColumns();
+  }
+
+  function addExpenseInvestment() {
+    $('#living-expenses [data-exp-invs]').insertAdjacentHTML('beforeend', expInvestmentLine());
+    syncExpenseColumns();
+  }
+
+  function addExpenseOther(group) {
+    $('#living-expenses [data-exp-others="' + group + '"]').insertAdjacentHTML('beforeend', expOtherLine(group));
+    syncExpenseColumns();
   }
 
   /* Grow a textarea to fit what has been typed, so nothing is hidden below
@@ -769,17 +865,29 @@
       if (grand) { grand.value = fmt(total); }
     });
 
-    $$('[data-le-block]').forEach(function (block) {
-      var general = 0, additional = 0;
-      $$('[data-sum="general"]', block).forEach(function (el) { general += num(el.value); });
-      $$('[data-sum="additional"]', block).forEach(function (el) { additional += num(el.value); });
-      var g = $('[data-total="general"]', block);
-      var a = $('[data-total="additional"]', block);
-      var t = $('[data-total="grand"]', block);
-      if (g) { g.value = fmt(general); }
-      if (a) { a.value = fmt(additional); }
-      if (t) { t.value = fmt(general + additional); }
-    });
+    // Living expenses: totals per person's column, then all applicants together.
+    var grid = $('#living-expenses');
+    if (grid) {
+      var combined = 0;
+      $$('.exp-head [data-exp-person]', grid).forEach(function (head) {
+        var n = head.getAttribute('data-exp-person');
+        var cells = '.exp-cell[data-exp-person="' + n + '"] ';
+        var sums = { general: 0, additional: 0 };
+        Object.keys(sums).forEach(function (g) {
+          $$(cells + '[data-sum="' + g + '"]', grid).forEach(function (el) { sums[g] += num(el.value); });
+        });
+        var set = function (which, v) {
+          var el = $('.exp-line[data-exp-total="' + which + '"] ' + cells + 'input', grid);
+          if (el) { el.value = fmt(v); }
+        };
+        set('general', sums.general);
+        set('additional', sums.additional);
+        set('grand', sums.general + sums.additional);
+        combined += sums.general + sums.additional;
+      });
+      var all = document.querySelector('[data-total="combined"]');
+      if (all) { all.value = fmt(combined); }
+    }
   }
 
   /* Totals calculate here but are left editable rather than locked. The
@@ -917,95 +1025,6 @@
     return body.lastElementChild;
   }
 
-  function blockNumber(block) { return block.getAttribute('data-le-block'); }
-
-  function renumberInvestments(block) {
-    var p = lePrefix(blockNumber(block));
-    $$('[data-inv-row]', block).forEach(function (row, idx) {
-      var i = idx + 1;
-      var current = row.getAttribute('data-inv-index');
-      if (current !== String(i)) {
-        renameFields(row, p + 'investment_property_' + current + '_', p + 'investment_property_' + i + '_');
-        row.setAttribute('data-inv-index', i);
-      }
-      row.querySelector('label').textContent = 'Investment Property ' + i;
-    });
-  }
-
-  function addInvestmentExpense(block) {
-    var anchor = $('[data-inv-list]', block);
-    var i = $$('[data-inv-row]', block).length + 1;
-    anchor.insertAdjacentHTML('beforeend', investmentRow(blockNumber(block), i));
-    anchor.lastElementChild.setAttribute('data-inv-index', i);
-    renumberInvestments(block);
-    return anchor.lastElementChild;
-  }
-
-  function renumberOtherExpenses(block, group) {
-    var n = blockNumber(block);
-    var rows = $$('[data-other-row="' + group + '"]', block);
-    rows.forEach(function (row, idx) {
-      var i = idx + 1;
-      var current = parseInt(row.getAttribute('data-other-index'), 10);
-      if (current !== i) {
-        renameFields(row, otherExpenseBase(n, group, current), otherExpenseBase(n, group, i));
-        row.setAttribute('data-other-index', i);
-      }
-      row.querySelector('.expense-other label').textContent = i === 1 ? 'Others' : 'Other ' + i;
-      $('[data-remove="other"]', row).style.visibility = rows.length > 1 ? 'visible' : 'hidden';
-    });
-  }
-
-  function addOtherExpense(block, group) {
-    var anchor = $('[data-other-list="' + group + '"]', block);
-    var i = $$('[data-other-row="' + group + '"]', block).length + 1;
-    anchor.insertAdjacentHTML('beforeend', otherExpenseRow(blockNumber(block), group, i));
-    renumberOtherExpenses(block, group);
-    return anchor.lastElementChild;
-  }
-
-  /* Number the blocks and title them. With a single block the heading reads
-     as it always has; once there are two, each carries its number. Block 1 is
-     never removed, so renaming only ever moves le3_ to le2_ and so on. */
-  function renumberLivingExpenses() {
-    var blocks = $$('[data-le-block]');
-    blocks.forEach(function (block, idx) {
-      var i = idx + 1;
-      var was = blockNumber(block);
-      if (was !== String(i) && i > 1) {
-        renameFields(block, lePrefix(was), lePrefix(i));
-        block.setAttribute('data-le-block', i);
-      }
-      $('.bar', block).textContent = 'Monthly Living Expenses' + (blocks.length > 1 ? ' ' + i : '') +
-        ' — Completion is Mandatory';
-    });
-  }
-
-  function setBlockRows(block, c) {
-    var inv = c.investments === undefined ? 2 : c.investments;   // may legitimately be zero
-    var cur = $$('[data-inv-row]', block).length;
-    while (cur < inv) { addInvestmentExpense(block); cur++; }
-    while (cur > inv) { $$('[data-inv-row]', block).pop().remove(); cur--; }
-    renumberInvestments(block);
-    [['general', 'generalOthers'], ['additional', 'additionalOthers']].forEach(function (entry) {
-      var group = entry[0], target = Math.max(1, c[entry[1]] || 1);
-      var have = $$('[data-other-row="' + group + '"]', block).length;
-      while (have < target) { addOtherExpense(block, group); have++; }
-      while (have > target) { $$('[data-other-row="' + group + '"]', block).pop().remove(); have--; }
-      renumberOtherExpenses(block, group);
-    });
-  }
-
-  function addLivingExpenses() {
-    var box = $('#living-expense-blocks');
-    var n = $$('[data-le-block]', box).length + 1;
-    box.insertAdjacentHTML('beforeend', livingExpenseBlock(n));
-    var block = box.lastElementChild;
-    setBlockRows(block, { investments: 2, generalOthers: 1, additionalOthers: 1 });
-    renumberLivingExpenses();
-    return block;
-  }
-
   /* People 1 and 2 are permanent; only the extras are renumbered, so the
      employment and income sections keyed to a1_ and a2_ stay put. */
   /* Add or drop the employment and income blocks so there is exactly one of
@@ -1067,6 +1086,7 @@
     syncPersonSections();
     syncSuper();
     syncOwners();
+    syncExpenseColumns();
   }
 
   function addPerson() {
@@ -1150,13 +1170,11 @@
       emp: $$('[data-employment-block]').map(function (b) {
         return $$('[data-emp-card]', b).length;
       }),
-      livingExpenses: $$('[data-le-block]').map(function (b) {
-        return {
-          investments: $$('[data-inv-row]', b).length,
-          generalOthers: $$('[data-other-row="general"]', b).length,
-          additionalOthers: $$('[data-other-row="additional"]', b).length
-        };
-      })
+      expenses: {
+        investments: $$('#living-expenses [data-exp-inv]').length,
+        generalOthers: $$('#living-expenses [data-exp-other="general"]').length,
+        additionalOthers: $$('#living-expenses [data-exp-other="additional"]').length
+      }
     };
   }
 
@@ -1206,18 +1224,23 @@
       while (cur > target) { $$(sel).pop().remove(); cur--; }
     });
 
-    /* Living expense blocks. Drafts saved before there could be more than one
-       kept these counts at the top level; they belong to block 1. */
-    var leCounts = c.livingExpenses || [{
-      investments: c.investments === undefined ? 4 : c.investments,
-      generalOthers: c.generalOthers, additionalOthers: c.additionalOthers
-    }];
-    var leTarget = Math.max(1, leCounts.length);
-    var leHave = $$('[data-le-block]').length;
-    while (leHave < leTarget) { addLivingExpenses(); leHave++; }
-    while (leHave > leTarget) { $$('[data-le-block]').pop().remove(); leHave--; }
-    renumberLivingExpenses();
-    $$('[data-le-block]').forEach(function (block, idx) { setBlockRows(block, leCounts[idx] || {}); });
+    /* Living expense rows. Older drafts kept these counts at the top level, or
+       per block when expenses were declared in separate blocks; take enough
+       rows for the largest. */
+    var ex = c.expenses;
+    if (!ex) {
+      var legacy = c.livingExpenses || [{
+        investments: c.investments === undefined ? 4 : c.investments,
+        generalOthers: c.generalOthers, additionalOthers: c.additionalOthers
+      }];
+      ex = { investments: 0, generalOthers: 1, additionalOthers: 1 };
+      legacy.forEach(function (b) {
+        ex.investments = Math.max(ex.investments, b.investments === undefined ? 2 : b.investments);
+        ex.generalOthers = Math.max(ex.generalOthers, b.generalOthers || 1);
+        ex.additionalOthers = Math.max(ex.additionalOthers, b.additionalOthers || 1);
+      });
+    }
+    setExpenseRows(ex);
 
     renumberPeople();
     syncSuper();
@@ -1290,6 +1313,40 @@
       delete fields.loan_usage;
     })();
 
+    /* Living expenses used to be one column of figures (primary_residence,
+       investment_property_2_expense, general_others_2, …), briefly repeated as
+       blocks prefixed le2_, le3_. They are now one column per person. The
+       original column, and block 1, become Applicant 1's figures; block N
+       becomes Applicant N's. Old totals are dropped — they are recalculated. */
+    (function () {
+      var fields = data.fields || {};
+      var fixed = GENERAL_EXPENSES.concat(ADDITIONAL_EXPENSES_TOP, ADDITIONAL_EXPENSES_BOTTOM)
+        .map(function (e) { return e[0]; });
+      Object.keys(fields).forEach(function (name) {
+        var m = /^(?:le(\d+)_)?(.*)$/.exec(name), n = m[1] || '1', rest = m[2], key = null, detail = false, mm;
+        if (fixed.indexOf(rest) >= 0) {
+          key = rest;
+        } else if ((mm = /^investment_property_(\d+)_expense$/.exec(rest))) {
+          key = 'investment_property_' + mm[1];
+        } else if ((mm = /^(general|additional)_others(?:_(\d+))?(_detail)?$/.exec(rest))) {
+          key = mm[1] + '_others_' + (mm[2] || 1);
+          detail = !!mm[3];
+        } else if (/^(general_total|additional_total|living_expenses_for)$/.test(rest) ||
+                   (m[1] && rest === 'total_living_expenses')) {
+          delete fields[name];
+          return;
+        }
+        if (!key) { return; }
+        var value = fields[name];
+        delete fields[name];
+        if (detail) {
+          if (!fields['exp_' + key + '_detail']) { fields['exp_' + key + '_detail'] = value; }
+        } else {
+          fields['a' + n + '_exp_' + key] = value;
+        }
+      });
+    })();
+
     /* "Build" and "Renovate" became "Construction" and "Bridging". Carry the
        tick over so an application saved under the old wording keeps it. */
     [['purpose_build', 'purpose_construction'],
@@ -1341,6 +1398,8 @@
     applyFields();
     recalc();
     syncScheme();
+    syncSuper();          // labels that show people's names, now the names are back
+    syncExpenseHeads();
     growAll();
   }
 
@@ -1348,7 +1407,7 @@
     $('#loan-form').reset();
     setCounts({ people: 2, properties: 3, emp: [1, 1],
                 motor_vehicle: 1, savings: 1, credit_card: 1, car_loan: 1,
-                livingExpenses: [{ investments: 2, generalOthers: 1, additionalOthers: 1 }] });
+                expenses: { investments: 2, generalOthers: 1, additionalOthers: 1 } });
     $$('#loan-form [name]').forEach(function (el) {
       if (el.type === 'checkbox') { el.checked = false; } else { el.value = ''; }
     });
@@ -1394,10 +1453,11 @@
   function build() {
     $('#assets-left').innerHTML = ASSETS_LEFT.map(pairRow).join('');
     $('#assets-right').innerHTML = ASSETS_RIGHT.map(pairRow).join('');
+    buildExpenseGrid();
 
     setCounts({ people: 2, properties: 3, emp: [1, 1],
                 motor_vehicle: 1, savings: 1, credit_card: 1, car_loan: 1,
-                livingExpenses: [{ investments: 2, generalOthers: 1, additionalOthers: 1 }] });
+                expenses: { investments: 2, generalOthers: 1, additionalOthers: 1 } });
   }
 
   /* ------------------------------------------------------------------ */
@@ -1413,7 +1473,7 @@
       if (e.target.classList.contains('dependents-number')) { syncDependentAges(e.target); }
 
       // Superannuation rows are labelled with the person they belong to.
-      if (/^a\d+_(given_names|surname)$/.test(e.target.name || '')) { syncSuper(); }
+      if (/^a\d+_(given_names|surname)$/.test(e.target.name || '')) { syncSuper(); syncExpenseHeads(); }
 
       // Keep each income line labelled with the job it belongs to.
       if (/(job_title|employer_name)$/.test(e.target.name || '')) {
@@ -1499,28 +1559,20 @@
         if (ib) { ib.remove(); }
         pcard.remove();
         syncOwners(parseInt(pi, 10));   // before renumbering, so "Applicant 3" becomes 2
+        $$('#living-expenses [data-exp-person="' + pi + '"]').forEach(function (c) { c.remove(); });
         renumberPeople();
+        recalc();   // their expenses leave the all-applicants total
       } else if (kind === 'property') {
         btn.closest('tr').remove();
         renumberProperties();
-      } else if (kind === 'inv') {
-        var invBlock = btn.closest('[data-le-block]');
-        btn.closest('[data-inv-row]').remove();
-        renumberInvestments(invBlock);
+      } else if (kind === 'exp-inv' || kind === 'exp-other') {
+        btn.closest('.exp-line').remove();
+        renameExpenseGrid();
         recalc();
-      } else if (kind === 'other') {
-        var group = btn.getAttribute('data-other-group');
-        var otherBlock = btn.closest('[data-le-block]');
-        btn.closest('[data-other-row]').remove();
-        renumberOtherExpenses(otherBlock, group);
-        recalc();
-      } else if (kind === 'le') {
-        btn.closest('[data-le-block]').remove();
-        renumberLivingExpenses();
-      } else if (btn.hasAttribute('data-add-inv')) {
-        addInvestmentExpense(btn.closest('[data-le-block]'));
-      } else if (btn.hasAttribute('data-add-other')) {
-        addOtherExpense(btn.closest('[data-le-block]'), btn.getAttribute('data-add-other'));
+      } else if (btn.hasAttribute('data-add-exp-inv')) {
+        addExpenseInvestment();
+      } else if (btn.hasAttribute('data-add-exp-other')) {
+        addExpenseOther(btn.getAttribute('data-add-exp-other'));
       }
     });
 
@@ -1531,7 +1583,6 @@
       if (b) { addAsset(b.getAttribute('data-add-asset')); }
     });
     $('#btn-add-property').addEventListener('click', addProperty);
-    $('#btn-add-living-expenses').addEventListener('click', addLivingExpenses);
 
     $('#btn-fillable').addEventListener('click', function () {
       var btn = this;
