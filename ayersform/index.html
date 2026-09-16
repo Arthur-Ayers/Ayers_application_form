@@ -54,14 +54,13 @@
       </div>
     </div>
     <div class="field">
-      <label for="loan_usage">Usage</label>
-      <select id="loan_usage" name="loan_usage">
-        <option value=""></option>
-        <option value="Owner-Occupied">Owner-Occupied</option>
-        <option value="Investment">Investment</option>
-        <option value="Business / Commercial">Business / Commercial</option>
-        <option value="SMSF">SMSF</option>
-      </select>
+      <span class="field-label">Usage <span class="lbl-note">(tick all that apply)</span></span>
+      <div class="ticks two purpose-ticks">
+        <label class="tick"><input type="checkbox" name="usage_owner_occupied"> Owner-Occupied</label>
+        <label class="tick"><input type="checkbox" name="usage_investment"> Investment</label>
+        <label class="tick"><input type="checkbox" name="usage_business"> Business / Commercial</label>
+        <label class="tick"><input type="checkbox" name="usage_smsf"> SMSF</label>
+      </div>
     </div>
   </div>
 
@@ -184,6 +183,6 @@
 
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="pdf-export.js?v=80"></script>
-<script src="app.js?v=70"></script>
+<script src="app.js?v=71"></script>
 </body>
 </html>

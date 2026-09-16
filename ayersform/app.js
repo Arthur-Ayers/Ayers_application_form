@@ -719,13 +719,12 @@
   function syncScheme() {
     var box = document.querySelector('[name="usage_first_home_guarantee"]');
     if (!box) { return; }
-    var usageEl = document.querySelector('[name="loan_usage"]');
-    var usage = usageEl ? usageEl.value : '';
+    var ownerOccupied = document.querySelector('[name="usage_owner_occupied"]');
     var purposeOk = SCHEME_PURPOSES.some(function (name) {
       var el = document.querySelector('[name="' + name + '"]');
       return el && el.checked;
     });
-    var ok = purposeOk && usage === 'Owner-Occupied';
+    var ok = purposeOk && !!(ownerOccupied && ownerOccupied.checked);
 
     box.disabled = !ok;
     if (!ok) { box.checked = false; }
@@ -1278,23 +1277,18 @@
       delete fields.loan_purpose;
     })();
 
-    /* Usage was four tick boxes before it became a dropdown. Carry a saved
-       tick over to the matching option. */
-    var TICK_TO_OPTION = {
-      loan_usage: { usage_owner_occupied: 'Owner-Occupied', usage_investment: 'Investment',
-                    usage_business: 'Business / Commercial', usage_smsf: 'SMSF' }
-    };
-    Object.keys(TICK_TO_OPTION).forEach(function (target) {
+    /* Usage, like Purpose, was briefly a single dropdown; a loan can serve
+       more than one use, so it is tick boxes again. A draft saved as a
+       dropdown carries its one choice over as a tick. */
+    (function () {
       var fields = data.fields || {};
-      if (fields[target]) { return; }            // already a dropdown value
-      var map = TICK_TO_OPTION[target];
-      Object.keys(map).forEach(function (tick) {
-        if (fields[tick]) {
-          if (!fields[target]) { fields[target] = map[tick]; }
-          delete fields[tick];
-        }
-      });
-    });
+      var USAGE_TICK = { 'Owner-Occupied': 'usage_owner_occupied', 'Investment': 'usage_investment',
+        'Business / Commercial': 'usage_business', 'SMSF': 'usage_smsf' };
+      if (fields.loan_usage && USAGE_TICK[fields.loan_usage]) {
+        fields[USAGE_TICK[fields.loan_usage]] = true;
+      }
+      delete fields.loan_usage;
+    })();
 
     /* "Build" and "Renovate" became "Construction" and "Bridging". Carry the
        tick over so an application saved under the old wording keeps it. */
@@ -1447,7 +1441,10 @@
     // only one option in a group can be ticked).
     form.addEventListener('change', function (e) {
       var el = e.target;
-      if (/^purpose_/.test(el.name || '') || el.name === 'loan_usage') { syncScheme(); return; }
+      if (/^(purpose|usage)_/.test(el.name || '') && el.name !== 'usage_first_home_guarantee') {
+        syncScheme();
+        return;
+      }
       if (el.type !== 'checkbox') { return; }
 
       if (el.hasAttribute('data-current')) {
