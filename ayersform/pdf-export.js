@@ -406,7 +406,7 @@
     } else {
       field = ctx.form.createTextField(name);
       if (multiline) { field.enableMultiline(); }
-      var value = safeText(it.el.value || '');
+      var value = safeText(isExpenseAmount(it.el) ? moneyText(it.el.value) : (it.el.value || ''));
       /* Normalize the address and insert compact line breaks using the
          requested address font size. */
       if (isPropertyAddressName(name)) {
@@ -431,30 +431,61 @@
 
      The web form fills the totals in before export, so they are right when the
      file is saved. These scripts keep them right afterwards: change a figure in
-     the PDF and the column totals and Total Living Expenses follow. Viewers that
-     run form scripts (Adobe Acrobat and Reader, Chrome) do this; macOS Preview
-     does not run them, so there the totals stay as they were at download.
+     the PDF and the column totals and the overall total follow. Viewers that
+     run form scripts (Adobe Acrobat and Reader, Chrome, Firefox) do this; macOS
+     Preview runs no scripts at all, so there the totals stay as downloaded.
 
-     The script reads each amount the way the web form does — anything that is
-     not a digit, point or minus is ignored, so "$1,200" counts as 1200 — and
-     writes the result in the same style: thousands separators, no ".00". */
+     Every amount in the section is stored and shown as dollars and cents with
+     separators — "2,000.00". The cents are not decoration. A bare "2,000" is
+     read by some viewers as the number 2, the comma taken for a decimal point
+     (Firefox does; it made every total wrong), and Preview displays the stored
+     text as-is, so storing a plain "2000" instead would lose the separators
+     there. "2,000.00" reads correctly everywhere. Typed entries such as
+     "$2500" are normalised to the same form when the field is left. */
+  var MONEY_JS = [
+    'function money(v) {',
+    '  var t = parseFloat(String(v).replace(/[^0-9.\\-]/g, ""));',
+    '  if (isNaN(t) || t === 0) { return ""; }',
+    '  var parts = Math.abs(Math.round(t * 100) / 100).toFixed(2).split(".");',
+    '  parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");',
+    '  return (t < 0 ? "-" : "") + parts.join(".");',
+    '}'
+  ].join('\n');
+
+  // the same formatting, for the values written into the file
+  function moneyText(v) {
+    var t = parseFloat(String(v || '').replace(/[^0-9.\-]/g, ''));
+    if (isNaN(t) || t === 0) { return ''; }
+    var parts = Math.abs(Math.round(t * 100) / 100).toFixed(2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (t < 0 ? '-' : '') + parts.join('.');
+  }
+
+  function isExpenseAmount(el) {
+    return !!(el.closest && (el.closest('#living-expenses .exp-cell') ||
+      el.getAttribute('data-total') === 'combined'));
+  }
+
+  function keystrokeScript() {
+    return MONEY_JS + '\nif (event.willCommit) { event.value = money(event.value); }';
+  }
+
+  function formatScript() {
+    return MONEY_JS + '\nevent.value = money(event.value);';
+  }
+
   function sumScript(names) {
     return [
+      MONEY_JS,
       'var names = ' + JSON.stringify(names) + ';',
       'var t = 0;',
       'for (var i = 0; i < names.length; i++) {',
       '  var f = this.getField(names[i]);',
       '  if (!f) { continue; }',
-      '  var n = parseFloat(String(f.valueAsString).replace(/[^0-9.\\-]/g, ""));',
+      '  var n = parseFloat(String(f.value).replace(/[^0-9.\\-]/g, ""));',
       '  if (!isNaN(n)) { t += n; }',
       '}',
-      'if (!t) { event.value = ""; } else {',
-      '  var neg = t < 0;',
-      '  var s = Math.abs(Math.round(t * 100) / 100).toFixed(2).replace(/\\.?0+$/, "");',
-      '  var parts = s.split(".");',
-      '  parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");',
-      '  event.value = (neg ? "-" : "") + parts.join(".");',
-      '}'
+      'event.value = money(t);'
     ].join('\n');
   }
 
@@ -465,16 +496,25 @@
     function field(name) {
       try { return name ? form.getTextField(name) : null; } catch (e) { return null; }
     }
+    function js(code) {
+      return pdf.context.obj({ S: 'JavaScript', JS: PDFLib.PDFHexString.fromText(code) });
+    }
+
+    // Every amount and total in the section: stored plain, shown formatted.
+    var actions = {};   // field name -> { K, F, C }
+    var amountInputs = $$('.exp-cell input', grid).concat($$('[data-total="combined"]'));
+    amountInputs.forEach(function (el) {
+      var f = field(el.name);
+      if (!f) { return; }
+      actions[el.name] = { K: js(keystrokeScript()), F: js(formatScript()) };
+    });
+
     var order = [];
     function attach(targetName, names) {
       var target = field(targetName);
       names = names.filter(function (n) { return field(n); });
-      if (!target || !names.length) { return; }
-      var action = pdf.context.obj({
-        S: 'JavaScript',
-        JS: PDFLib.PDFHexString.fromText(sumScript(names))
-      });
-      target.acroField.dict.set(PDFLib.PDFName.of('AA'), pdf.context.obj({ C: action }));
+      if (!target || !names.length || !actions[targetName]) { return; }
+      actions[targetName].C = js(sumScript(names));
       order.push(target.ref);
     }
     function totalName(which, n) {
@@ -507,6 +547,9 @@
       attach(combined.name, parts);
     }
 
+    Object.keys(actions).forEach(function (name) {
+      field(name).acroField.dict.set(PDFLib.PDFName.of('AA'), pdf.context.obj(actions[name]));
+    });
     if (order.length) {
       form.acroForm.dict.set(PDFLib.PDFName.of('CO'), pdf.context.obj(order));
     }

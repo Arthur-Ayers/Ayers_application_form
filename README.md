@@ -55,7 +55,7 @@ recommended because it matches the hosted setup and avoids browser-specific `fil
 
 ## Editing: bump the cache buster
 
-`index.html` loads `styles.css?v=81`, `pdf-export.js?v=82` and `app.js?v=74`. **Increment that number whenever you change
+`index.html` loads `styles.css?v=81`, `pdf-export.js?v=84` and `app.js?v=74`. **Increment that number whenever you change
 either file.** Browsers cache both aggressively; without it an edit can appear to do nothing, and —
 worse — the form can still *print* with the old layout even though the screen looks current. This
 has already caused one bad 6-page print of a form that lays out correctly in 3.
@@ -167,12 +167,25 @@ An application leaves the browser only when you press **Complete Form**.
 Totals calculate as figures are typed, and remain editable rather than locked.
 They are recalculated on restore too.
 
-In the downloaded PDF, the **living expense** totals (both column totals and Total
-Living Expenses for each applicant column, and the overall total) recalculate when a figure is changed, through form scripts built into
-the file. That works in **Adobe Acrobat / Reader** and Chrome's PDF viewer. **macOS
-Preview does not run form scripts**, so there the totals stay as they were at download
-and an amended figure needs its total corrected by hand. Income totals in the PDF do
-not recalculate in any viewer.
+In the downloaded PDF, the **living expense** totals (General and Additional totals, Total
+Living Expenses for each applicant column, and the overall total) recalculate when a
+figure is changed, through form scripts built into the file.
+
+| Viewer | Totals recalculate |
+| --- | --- |
+| Adobe Acrobat / Acrobat Reader | Yes |
+| Chrome, Firefox | Yes |
+| **macOS Preview** | **No — Preview runs no PDF scripts at all.** Totals stay as they were at download. |
+
+Verified with pdf.js (Firefox's viewer, which implements the Acrobat form-script API),
+not only by running the scripts in a browser.
+
+Living expense amounts in the PDF are written as dollars and cents with separators,
+"2,000.00". A bare "2,000" is read by some viewers as the number 2 — the comma taken for
+a decimal point — which made every total wrong in Firefox; Preview shows the stored text
+as-is, so a plain "2000" would lose the separators there. Typed entries such as "$2500"
+are normalised to the same form when the field is left. Income totals in the PDF do not
+recalculate in any viewer.
 
 ## The PDF
 
